@@ -1,0 +1,13 @@
+{
+  "profiles": {
+    "Ehmini.WebApi": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "launchUrl": "swagger",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:53706;http://localhost:53707"
+    }
+  }
+}

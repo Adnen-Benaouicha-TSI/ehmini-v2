@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Ehmini.Application/Ehmini.Application.csproj" />
+    <Project Path="src/Ehmini.Core/Ehmini.Core.csproj" />
+    <Project Path="src/Ehmini.Infrastructure/Ehmini.Infrastructure.csproj" />
+    <Project Path="src/Ehmini.WebApi/Ehmini.WebApi.csproj" />
+  </Folder>
+  <Folder Name="/tests/" />
+  <Project Path="tests/Ehmini.Application.UnitTests/Ehmini.Application.UnitTests.csproj" />
+</Solution>
