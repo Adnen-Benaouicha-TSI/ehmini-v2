@@ -1,4 +1,3 @@
-using System;
 using Ehmini.Application;
 using Ehmini.Infrastructure;
 using Ehmini.WebApi.Middleware;
@@ -7,7 +6,10 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.OpenApi.Models;
+using System;
+using System.IdentityModel.Tokens.Jwt;
 
+JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 var builder = WebApplication.CreateBuilder(args);
 
 // ==========================================
@@ -15,7 +17,6 @@ var builder = WebApplication.CreateBuilder(args);
 // ==========================================
 builder.Services.AddInfrastructure(builder.Configuration); // Contient déjà la DB, Identity et l'authentification JWT
 builder.Services.AddApplication();
-
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
@@ -105,5 +106,4 @@ app.UseAuthentication(); // Validation OAuth2 / JWT
 app.UseAuthorization();
 
 app.MapControllers();
-
 app.Run();

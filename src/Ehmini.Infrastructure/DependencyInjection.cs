@@ -4,6 +4,7 @@ using Ehmini.Core.Entities;
 using Ehmini.Core.Interfaces;
 using Ehmini.Infrastructure.Persistence;
 using Ehmini.Infrastructure.Persistence.Repositories;
+using Ehmini.Infrastructure.Persistence.Services;
 using Ehmini.Infrastructure.Providers;
 using Ehmini.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer; // 👈 AJOUTÉ
@@ -68,6 +69,7 @@ public static class DependencyInjection
         // 4. Enregistrement des Services et Repositories
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<ITokenService, TokenService>();
+        services.AddScoped<IPkceService, PkceService>();
         services.AddTransient<IApiKeyValidation, ApiKeyValidation>();
         services.AddScoped<IAddressRepository, AddressRepository>();
         services.AddScoped<ICountryRepository, CountryRepository>();
@@ -82,7 +84,7 @@ public static class DependencyInjection
         {
             // Url de base fictive pour le moment, à basculer vers celle de Phoenix plus tard
             client.BaseAddress = new Uri("http://localhost:2487/");
-            client.Timeout = TimeSpan.FromSeconds(10);
+            client.Timeout = TimeSpan.FromSeconds(60);
         });
 
         return services;

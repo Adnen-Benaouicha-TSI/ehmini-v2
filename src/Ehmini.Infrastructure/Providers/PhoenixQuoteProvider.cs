@@ -2,6 +2,8 @@
 using Ehmini.Application.Interfaces;
 using Ehmini.Core.Enum;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using System.Net.Http.Json;
 
 namespace Ehmini.Infrastructure.Providers;
@@ -10,12 +12,14 @@ public class PhoenixQuoteProvider : IQuoteProvider
 {
     private readonly HttpClient _httpClient;
     private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly IConfiguration _configuration;
     public ProviderType Provider => ProviderType.Phoenix;
 
-    public PhoenixQuoteProvider(HttpClient httpClient, IHttpContextAccessor httpContextAccessor)
+    public PhoenixQuoteProvider(HttpClient httpClient, IHttpContextAccessor httpContextAccessor, IConfiguration configuration)
     {
         _httpClient = httpClient;
         _httpContextAccessor = httpContextAccessor;
+        _configuration = configuration;
     }
 
     //public async Task<ProviderQuoteResponseDto> GenerateQuoteAsync(qModel phoenixPayload, CancellationToken cancellationToken)
@@ -96,59 +100,211 @@ public class PhoenixQuoteProvider : IQuoteProvider
     //        ExpiresAt: DateTime.UtcNow.AddDays(30)
     //    );
     //}
-
-    public async Task<ProviderQuoteResponseDto> GenerateQuoteAsync(qModel phoenixPayload, CancellationToken cancellationToken)
+    public async Task<string> GetPhoenixTokenAsync(string cin, CancellationToken cancellationToken)
     {
-        var currentToken = _httpContextAccessor.HttpContext?.Request.Headers["Authorization"].ToString();
-
-        if (!string.IsNullOrEmpty(currentToken))
+        var payload = new
         {
-            string pureToken = currentToken.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
-                ? currentToken.Substring(7).Trim()
-                : currentToken.Trim();
+            grant_type = "client_credentials",
+            client_id = _configuration["Phoenix:ClientId"],
+            client_secret = _configuration["Phoenix:ClientSecret"],
+            user_cin = cin
+        };
 
-            _httpClient.DefaultRequestHeaders.Authorization =
-                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", pureToken);
-        }
-
-
-        if (phoenixPayload.c != null)
-        {
-            phoenixPayload.c.quotation = null!;
-        }
-
-        var response = await _httpClient.PostAsJsonAsync("api/Be/setQuotation", phoenixPayload, cancellationToken);
+        var response = await _httpClient.PostAsJsonAsync("api/oauth/token", payload, cancellationToken);
 
         if (!response.IsSuccessStatusCode)
         {
-            var errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
-            throw new HttpRequestException($"Erreur Phoenix ({response.StatusCode}): {errorContent}");
+            var error = await response.Content.ReadAsStringAsync(cancellationToken);
+            throw new HttpRequestException($"Échec d'obtention du token Phoenix: {response.StatusCode} - {error}");
         }
 
-        var apiResult = await response.Content.ReadFromJsonAsync<PhoenixApiResponse>(cancellationToken: cancellationToken);
-
-        if (apiResult == null || apiResult.msg != "OK")
-        {
-            throw new InvalidOperationException($"L'API Phoenix a retourné une erreur lors du calcul : {apiResult?.track ?? "Inconnue"}");
-        }
-
-        var lines = new List<QuoteLineDto>
-    {
-        new QuoteLineDto(
-            Description: "Devis Phoenix",
-            Quantite: 1,
-            UnitPrice: apiResult.qModel.ttc,
-            LineTotal: apiResult.qModel.ttc
-        )
-    };
-
-        return new ProviderQuoteResponseDto(
-            Reference: apiResult.qModel.reference,
-            TotalAmount: apiResult.qModel.ttc,
-            Lines: lines,
-            ExpiresAt: DateTime.UtcNow.AddDays(30)
-        );
+        var result = await response.Content.ReadFromJsonAsync<PhoenixTokenResponse>(cancellationToken: cancellationToken);
+        return result.access_token;
     }
+    public async Task<ProviderQuoteResponseDto> GenerateQuoteAsync(qModel phoenixPayload, CancellationToken cancellationToken)
+    {
+        try
+        {
+            // 1. Extraire le cin depuis le token utilisateur d'Ehmini (déjà authentifié côté Ehmini)
+            var currentPrincipal = _httpContextAccessor.HttpContext?.User;
+            var cin = currentPrincipal?.FindFirst("cin")?.Value;
+
+            if (string.IsNullOrEmpty(cin))
+            {
+                throw new UnauthorizedAccessException("cin introuvable dans le token utilisateur Ehmini.");
+            }
+
+            // 2. Échanger contre un token Phoenix (via client_credentials + cin)
+            string phoenixToken = await GetPhoenixTokenAsync(cin, cancellationToken);
+
+            _httpClient.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", phoenixToken);
+
+            if (phoenixPayload.c != null)
+            {
+                phoenixPayload.c.quotation = null!;
+            }
+
+            var response = await _httpClient.PostAsJsonAsync("api/Be/setQuotation", phoenixPayload, cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
+                throw new HttpRequestException($"Erreur Phoenix ({response.StatusCode}): {errorContent}");
+            }
+
+            var apiResult = await response.Content.ReadFromJsonAsync<PhoenixApiResponse>(cancellationToken: cancellationToken);
+
+            if (apiResult == null || apiResult.msg != "OK")
+            {
+                throw new InvalidOperationException($"L'API Phoenix a retourné une erreur lors du calcul : {apiResult?.track ?? "Inconnue"}");
+            }
+
+            var lines = new List<QuoteLineDto>
+        {
+            new QuoteLineDto(
+                Description: "Devis",
+                Quantite: 1,
+                UnitPrice: apiResult.qModel.ttc,
+                LineTotal: apiResult.qModel.ttc
+            )
+        };
+
+            return new ProviderQuoteResponseDto(
+                Reference: apiResult.qModel.reference,
+                TotalAmount: apiResult.qModel.ttc,
+                Lines: lines,
+                ExpiresAt: DateTime.UtcNow.AddDays(30)
+            );
+        }
+        catch (UnauthorizedAccessException)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            throw;
+        }
+        catch (TaskCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            // Interception du Timeout HTTP de 60s
+            throw new TimeoutException("L'API Phoenix n'a pas répondu dans le délai imparti.", ex);
+        }
+        catch (Exception ex)
+        {
+            throw new Exception($"Erreur lors de la génération du devis : {ex.Message}", ex);
+        }
+    }
+
+    //public async Task<ProviderQuoteResponseDto> GenerateQuoteAsync(qModel phoenixPayload, CancellationToken cancellationToken)
+    //{
+    //    // 1. Extraire le cin depuis le token utilisateur d'Ehmini (déjà authentifié côté Ehmini)
+    //    var currentPrincipal = _httpContextAccessor.HttpContext?.User;
+    //    var cin = currentPrincipal?.FindFirst("cin")?.Value;
+
+    //    if (string.IsNullOrEmpty(cin))
+    //    {
+    //        throw new UnauthorizedAccessException("cin introuvable dans le token utilisateur Ehmini.");
+    //    }
+
+    //    // 2. Échanger contre un token Phoenix (via client_credentials + cin)
+    //    string phoenixToken = await GetPhoenixTokenAsync(cin, cancellationToken);
+
+    //    _httpClient.DefaultRequestHeaders.Authorization =
+    //        new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", phoenixToken);
+
+    //    if (phoenixPayload.c != null)
+    //    {
+    //        phoenixPayload.c.quotation = null!;
+    //    }
+
+    //    _httpClient.Timeout = TimeSpan.FromSeconds(60);
+    //    var response = await _httpClient.PostAsJsonAsync("api/Be/setQuotation", phoenixPayload, cancellationToken);
+
+    //    if (!response.IsSuccessStatusCode)
+    //    {
+    //        var errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
+    //        throw new HttpRequestException($"Erreur Phoenix ({response.StatusCode}): {errorContent}");
+    //    }
+
+    //    var apiResult = await response.Content.ReadFromJsonAsync<PhoenixApiResponse>(cancellationToken: cancellationToken);
+
+    //    if (apiResult == null || apiResult.msg != "OK")
+    //    {
+    //        throw new InvalidOperationException($"L'API Phoenix a retourné une erreur lors du calcul : {apiResult?.track ?? "Inconnue"}");
+    //    }
+
+    //    var lines = new List<QuoteLineDto>
+    //{
+    //    new QuoteLineDto(
+    //        Description: "Devis",
+    //        Quantite: 1,
+    //        UnitPrice: apiResult.qModel.ttc,
+    //        LineTotal: apiResult.qModel.ttc
+    //    )
+    //};
+
+    //    return new ProviderQuoteResponseDto(
+    //        Reference: apiResult.qModel.reference,
+    //        TotalAmount: apiResult.qModel.ttc,
+    //        Lines: lines,
+    //        ExpiresAt: DateTime.UtcNow.AddDays(30)
+    //    );
+    //}
+
+
+    //public async Task<ProviderQuoteResponseDto> GenerateQuoteAsync(qModel phoenixPayload, CancellationToken cancellationToken)
+    //{
+    //    var currentToken = _httpContextAccessor.HttpContext?.Request.Headers["Authorization"].ToString();
+
+    //    if (!string.IsNullOrEmpty(currentToken))
+    //    {
+    //        string pureToken = currentToken.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
+    //            ? currentToken.Substring(7).Trim()
+    //            : currentToken.Trim();
+
+    //        _httpClient.DefaultRequestHeaders.Authorization =
+    //            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", pureToken);
+    //    }
+
+
+    //    if (phoenixPayload.c != null)
+    //    {
+    //        phoenixPayload.c.quotation = null!;
+    //    }
+    //    _httpClient.Timeout = TimeSpan.FromSeconds(60);
+    //    var response = await _httpClient.PostAsJsonAsync("api/Be/setQuotation", phoenixPayload, cancellationToken);
+
+    //    if (!response.IsSuccessStatusCode)
+    //    {
+    //        var errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
+    //        throw new HttpRequestException($"Erreur Phoenix ({response.StatusCode}): {errorContent}");
+    //    }
+
+    //    var apiResult = await response.Content.ReadFromJsonAsync<PhoenixApiResponse>(cancellationToken: cancellationToken);
+
+    //    if (apiResult == null || apiResult.msg != "OK")
+    //    {
+    //        throw new InvalidOperationException($"L'API Phoenix a retourné une erreur lors du calcul : {apiResult?.track ?? "Inconnue"}");
+    //    }
+
+    //    var lines = new List<QuoteLineDto>
+    //{
+    //    new QuoteLineDto(
+    //        Description: "Devis Phoenix",
+    //        Quantite: 1,
+    //        UnitPrice: apiResult.qModel.ttc,
+    //        LineTotal: apiResult.qModel.ttc
+    //    )
+    //};
+
+    //    return new ProviderQuoteResponseDto(
+    //        Reference: apiResult.qModel.reference,
+    //        TotalAmount: apiResult.qModel.ttc,
+    //        Lines: lines,
+    //        ExpiresAt: DateTime.UtcNow.AddDays(30)
+    //    );
+    //}
 
     public async Task<ProviderQuoteResponseDto> UpdateQuoteAsync(qModel phoenixPayload, CancellationToken cancellationToken)
     {
