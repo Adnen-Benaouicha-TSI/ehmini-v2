@@ -1,4 +1,6 @@
 ﻿using Ehmini.Application.Interfaces;
+using Ehmini.Application.Interfaces.PersonProviderService;
+using Ehmini.Application.Interfaces.QuoteProvider;
 using Ehmini.Application.Services;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -14,6 +16,8 @@ public static class DependencyInjection
         services.AddSingleton<IProviderConfigurationService, ProviderConfigurationService>();
         services.AddScoped<IQuoteProviderFactory, QuoteProviderFactory>();
         services.AddScoped<IDocumentOrchestrationService, DocumentOrchestrationService>();
+        services.AddScoped<IPersonProviderFactory, PersonProviderFactory>();
+        services.AddScoped<IProfessionService, ProfessionService>();
 
         return services;
     }

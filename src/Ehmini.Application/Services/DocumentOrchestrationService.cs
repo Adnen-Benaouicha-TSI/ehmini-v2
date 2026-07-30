@@ -1,7 +1,11 @@
 ﻿using Ehmini.Application.DTOs;
+using Ehmini.Application.DTOs.Brouillon;
+using Ehmini.Application.DTOs.Contracts;
 using Ehmini.Application.DTOs.Document;
+using Ehmini.Application.DTOs.QuotationList;
 using Ehmini.Application.DTOs.Quotes;
 using Ehmini.Application.Interfaces;
+using Ehmini.Application.Interfaces.QuoteProvider;
 using Ehmini.Core.Entities;
 using Ehmini.Core.Interfaces;
 using Microsoft.AspNetCore.Http;
@@ -25,13 +29,8 @@ public class DocumentOrchestrationService : IDocumentOrchestrationService
         _httpContextAccessor = httpContextAccessor;
     }
 
-    public async Task<DocumentResponseDto> ProcessAndSaveQuoteAsync(qModel quoteRequest, CancellationToken cancellationToken)
+    public async Task<DocumentResponseDto> ProcessAndSaveQuoteAsync(qModel quoteRequest, Guid userIdClaim, CancellationToken cancellationToken)
     {
-        var userIdClaim = _httpContextAccessor.HttpContext?.User?.FindFirst("userId")?.Value;
-        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out Guid userId))
-        {
-            throw new UnauthorizedAccessException("Utilisateur non authentifié.");
-        }
 
 
         var activeProvider = _providerFactory.GetActiveProvider();
@@ -46,7 +45,7 @@ public class DocumentOrchestrationService : IDocumentOrchestrationService
             documentType: "Devis",
             providerName: activeProvider.Provider.ToString(),
             externalReference: providerResponse.Reference,
-            userId: userId
+            userId: userIdClaim
         );
 
         documentEntity.TotalAmount = providerResponse.TotalAmount;
@@ -223,5 +222,28 @@ public class DocumentOrchestrationService : IDocumentOrchestrationService
         var result = await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return result > 0;
+    }
+    public async Task<List<ProviderQuotationDto>> GetQuotationsAsync(
+       int language,
+       CancellationToken cancellationToken)
+    {
+        return await _providerFactory
+            .GetActiveProvider()
+            .GetQuotationsAsync(language, cancellationToken);
+    }
+    public async Task<List<qModel>> GetContractsAsync(
+    CancellationToken cancellationToken)
+    {
+        return await _providerFactory
+            .GetActiveProvider()
+            .GetContractsAsync(cancellationToken);
+    }
+    public async Task<List<BrouillonDto>> GetBrouillonsByUserAsync(
+CancellationToken cancellationToken)
+    {
+        var activeProvider = _providerFactory.GetActiveProvider();
+
+        return await activeProvider.GetBrouillonsByUserAsync(
+            cancellationToken);
     }
 }

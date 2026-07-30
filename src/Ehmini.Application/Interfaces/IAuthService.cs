@@ -1,5 +1,6 @@
 using System.Threading.Tasks;
 using Ehmini.Application.DTOs.Auth;
+using Ehmini.Application.DTOs.Person;
 
 namespace Ehmini.Application.Interfaces;
 
@@ -14,5 +15,7 @@ public interface IAuthService
     Task<object> ConfirmAccountAsync(ConfirmAccountRequestDto dto);
     Task<object> GetConfirmationCodeAsync(GetConfirmationCodeRequestDto dto);
     Task<UpdateUserInfoResponseDto> UpdateUserInfoAsync(UpdateUserInfoRequestDto dto);
+    Task<PersonDto> GetPersonAsync(CancellationToken cancellationToken);
+
 
 }

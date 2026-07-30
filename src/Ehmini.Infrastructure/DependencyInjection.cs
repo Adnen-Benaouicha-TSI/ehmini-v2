@@ -1,10 +1,13 @@
 using Ehmini.Application.Interfaces;
+using Ehmini.Application.Interfaces.PersonProviderService;
+using Ehmini.Application.Interfaces.QuoteProvider;
 using Ehmini.Application.Services;
 using Ehmini.Core.Entities;
 using Ehmini.Core.Interfaces;
+using Ehmini.Infrastructure.Extensions;
 using Ehmini.Infrastructure.Persistence;
 using Ehmini.Infrastructure.Persistence.Repositories;
-using Ehmini.Infrastructure.Providers;
+using Ehmini.Infrastructure.Providers.Pheonix;
 using Ehmini.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer; // 👈 AJOUTÉ
 using Microsoft.AspNetCore.Identity;
@@ -12,7 +15,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens; // 👈 AJOUTÉ
-using System;
 using System.Text;
 
 namespace Ehmini.Infrastructure;
@@ -77,13 +79,8 @@ public static class DependencyInjection
         services.AddScoped<IProfessionRepository, ProfessionRepository>();
         services.AddScoped<IRegionRepository, RegionRepository>();
         services.AddScoped<IZoneRepository, ZoneRepository>();
-
-        services.AddHttpClient<IQuoteProvider, PhoenixQuoteProvider>(client =>
-        {
-            // Url de base fictive pour le moment, à basculer vers celle de Phoenix plus tard
-            client.BaseAddress = new Uri("http://localhost:2487/");
-            client.Timeout = TimeSpan.FromSeconds(10);
-        });
+        services.AddPhoenixHttpClient<IQuoteProvider, PhoenixQuoteProvider>();
+        services.AddPhoenixHttpClient<IPersonProvider, PhoenixPersonProvider>();
 
         return services;
     }

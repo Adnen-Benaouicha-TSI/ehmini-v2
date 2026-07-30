@@ -1,4 +1,7 @@
+using Ehmini.Application.DTOs.Brouillon;
+using Ehmini.Application.DTOs.Contracts;
 using Ehmini.Application.DTOs.Document;
+using Ehmini.Application.DTOs.QuotationList;
 using Ehmini.Application.DTOs.Quotes;
 using Ehmini.Application.Interfaces;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -55,7 +58,12 @@ public class DocumentsController : ControllerBase
     {
         try
         {
-            var result = await _orchestrationService.ProcessAndSaveQuoteAsync(request, cancellationToken);
+            var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!Guid.TryParse(userIdStr, out var userId))
+            {
+                return Unauthorized();
+            }
+            var result = await _orchestrationService.ProcessAndSaveQuoteAsync(request, new Guid(userIdStr), cancellationToken);
             return Ok(result);
         }
         catch (InvalidOperationException ex)
@@ -110,6 +118,44 @@ public class DocumentsController : ControllerBase
         {
             return BadRequest(ex.Message);
         }
+    }
+    [HttpGet("quotations")]
+    [ProducesResponseType(typeof(List<ProviderQuotationDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> GetQuotations(
+    [FromQuery] int language,
+    CancellationToken cancellationToken)
+    {
+        var quotations = await _orchestrationService.GetQuotationsAsync(
+            language,
+            cancellationToken);
+
+        return Ok(quotations);
+    }
+    [HttpGet("contracts")]
+    [ProducesResponseType(typeof(List<qModel>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> GetContracts(
+    CancellationToken cancellationToken)
+    {
+        var contracts = await _orchestrationService.GetContractsAsync(
+            cancellationToken);
+
+        return Ok(contracts);
+    }
+    [HttpGet("brouillons")]
+    [ProducesResponseType(typeof(List<BrouillonDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> GetBrouillons(
+    CancellationToken cancellationToken)
+    {
+        var result = await _orchestrationService.GetBrouillonsByUserAsync(
+            cancellationToken);
+
+        return Ok(result);
     }
 
 }

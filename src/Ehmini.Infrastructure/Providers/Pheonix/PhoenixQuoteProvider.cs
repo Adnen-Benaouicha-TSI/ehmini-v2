@@ -1,10 +1,13 @@
-﻿using Ehmini.Application.DTOs.Quotes;
-using Ehmini.Application.Interfaces;
+﻿using Ehmini.Application.DTOs.Brouillon;
+using Ehmini.Application.DTOs.Contracts;
+using Ehmini.Application.DTOs.QuotationList;
+using Ehmini.Application.DTOs.Quotes;
+using Ehmini.Application.Interfaces.QuoteProvider;
 using Ehmini.Core.Enum;
 using Microsoft.AspNetCore.Http;
 using System.Net.Http.Json;
 
-namespace Ehmini.Infrastructure.Providers;
+namespace Ehmini.Infrastructure.Providers.Pheonix;
 
 public class PhoenixQuoteProvider : IQuoteProvider
 {
@@ -202,4 +205,152 @@ public class PhoenixQuoteProvider : IQuoteProvider
         );
     }
 
+    public async Task<List<ProviderQuotationDto>> GetQuotationsAsync(int language, CancellationToken cancellationToken)
+    {
+        var currentToken = _httpContextAccessor.HttpContext?.Request.Headers["Authorization"].ToString();
+
+        if (!string.IsNullOrEmpty(currentToken))
+        {
+            string pureToken = currentToken.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
+                ? currentToken.Substring(7).Trim()
+                : currentToken.Trim();
+
+            _httpClient.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", pureToken);
+        }
+
+        using var timeoutCts = new CancellationTokenSource(
+            TimeSpan.FromSeconds(60)
+        );
+
+        var response = await _httpClient.GetAsync(
+            $"api/Be/getQuotations?language={language}",
+            timeoutCts.Token);
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
+            throw new HttpRequestException($"Erreur Phoenix ({response.StatusCode}): {errorContent}");
+        }
+
+        var apiResult = await response.Content.ReadFromJsonAsync<PhoenixQuotationsResponseDto>(
+            cancellationToken: cancellationToken);
+
+        if (apiResult == null)
+        {
+            throw new InvalidOperationException("La réponse de Phoenix est vide.");
+        }
+
+        if (!apiResult.IsSucceeded)
+        {
+            throw new InvalidOperationException(
+                $"L'API Phoenix a retourné une erreur : {apiResult.Message ?? "Inconnue"}");
+        }
+
+        return apiResult.Data;
+    }
+    public async Task<List<qModel>> GetContractsAsync(
+      CancellationToken cancellationToken)
+    {
+        var currentToken = _httpContextAccessor.HttpContext?
+            .Request.Headers["Authorization"]
+            .ToString();
+
+        if (!string.IsNullOrEmpty(currentToken))
+        {
+            string pureToken = currentToken.StartsWith(
+                "Bearer ",
+                StringComparison.OrdinalIgnoreCase)
+                ? currentToken.Substring(7).Trim()
+                : currentToken.Trim();
+
+            _httpClient.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue(
+                    "Bearer",
+                    pureToken);
+        }
+
+
+        var response = await _httpClient.GetAsync(
+            "api/Be/contracts",
+            cancellationToken);
+
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            throw new HttpRequestException(
+                $"Erreur Phoenix ({response.StatusCode}): {errorContent}");
+        }
+
+
+        var apiResult = await response.Content
+            .ReadFromJsonAsync<PhoenixContractsResponseDto>(
+                cancellationToken: cancellationToken);
+
+
+        if (apiResult == null)
+        {
+            throw new InvalidOperationException(
+                "La réponse Phoenix est vide.");
+        }
+
+
+        if (apiResult.Message != "OK")
+        {
+            throw new InvalidOperationException(
+                "L'API Phoenix a retourné une erreur lors de la récupération des contrats.");
+        }
+
+
+        return apiResult.Contracts;
+    }
+    public async Task<List<BrouillonDto>> GetBrouillonsByUserAsync(
+    CancellationToken cancellationToken)
+    {
+        var currentToken = _httpContextAccessor.HttpContext?
+            .Request.Headers["Authorization"]
+            .ToString();
+
+        if (!string.IsNullOrEmpty(currentToken))
+        {
+            var pureToken = currentToken.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
+                ? currentToken.Substring(7).Trim()
+                : currentToken.Trim();
+
+            _httpClient.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue(
+                    "Bearer",
+                    pureToken);
+        }
+
+        var response = await _httpClient.GetAsync(
+            "api/Be/GetBrouillonsByUser",
+            cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            throw new HttpRequestException(
+                $"Erreur Phoenix ({response.StatusCode}): {errorContent}");
+        }
+
+        var apiResult = await response.Content.ReadFromJsonAsync<PhoenixBrouillonsResponseDto>(
+            cancellationToken: cancellationToken);
+
+        if (apiResult == null)
+        {
+            throw new InvalidOperationException(
+                "La réponse Phoenix est vide.");
+        }
+
+        if (!apiResult.IsSucceeded)
+        {
+            throw new InvalidOperationException(
+                apiResult.Message ?? "Erreur lors de la récupération des brouillons.");
+        }
+
+        return apiResult.Data;
+    }
 }

@@ -188,4 +188,27 @@ public class AuthController : ControllerBase
 
         return Ok(result);
     }
+    [HttpGet("person")]
+    public async Task<IActionResult> GetPerson(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var person = await _authService.GetPersonAsync(
+                cancellationToken);
+
+            return Ok(new
+            {
+                isSucceeded = true,
+                data = person
+            });
+        }
+        catch (Exception ex)
+        {
+            return Ok(new
+            {
+                isSucceeded = false,
+                msg = ex.Message
+            });
+        }
+    }
 }

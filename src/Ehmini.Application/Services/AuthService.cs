@@ -1,10 +1,13 @@
 ﻿using Ehmini.Application.DTOs.Auth;
+using Ehmini.Application.DTOs.Person;
 using Ehmini.Application.Interfaces;
+using Ehmini.Application.Interfaces.PersonProviderService;
 using Ehmini.Core.Entities;
 using Ehmini.Core.Interfaces;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
+using System.Data.Common;
 using System.Security.Claims;
 
 namespace Ehmini.Application.Services;
@@ -13,6 +16,7 @@ public class AuthService : IAuthService
 {
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly RoleManager<IdentityRole<Guid>> _roleManager;
+    private readonly IPersonProviderFactory _providerFactory;
     private readonly ITokenService _tokenService;
     private readonly IEmailService _emailService;
     private readonly IUnitOfWork _unitOfWork;
@@ -20,7 +24,7 @@ public class AuthService : IAuthService
 
     public class ValidationException : Exception { public ValidationException(string message) : base(message) { } }
 
-    public AuthService(UserManager<ApplicationUser> userManager, RoleManager<IdentityRole<Guid>> roleManager, ITokenService tokenService, IEmailService emailService, IUnitOfWork unitOfWork, ICountryRepository countryRepository)
+    public AuthService(UserManager<ApplicationUser> userManager, RoleManager<IdentityRole<Guid>> roleManager, ITokenService tokenService, IEmailService emailService, IUnitOfWork unitOfWork, ICountryRepository countryRepository, IPersonProviderFactory personProviderFactory)
     {
         _userManager = userManager;
         _tokenService = tokenService;
@@ -28,6 +32,7 @@ public class AuthService : IAuthService
         _unitOfWork = unitOfWork;
         _countryRepository = countryRepository;
         _roleManager = roleManager;
+        _providerFactory = personProviderFactory;
     }
 
     public async Task<TokenResponseDto> RefreshAsync(TokenRequestDto dto)
@@ -260,9 +265,19 @@ public class AuthService : IAuthService
         }
 
         DateTime hourAgo = DateTime.UtcNow.AddHours(-1);
+
         if (user.AccountConfirmationToken == dto.Token && user.PwdResetTokenCreationDate >= hourAgo)
         {
+            var isPasswordValid = await _userManager.CheckPasswordAsync(user, dto.Password);
+
+            if (isPasswordValid)
+            {
+                Log.Information($"ResetPassword: user {dto.Username} attempted to reuse the current password.");
+                return new ResetPasswordResponseDto(0, "Le nouveau mot de passe doit être différent de l'ancien.");
+            }
+
             await _userManager.RemovePasswordAsync(user);
+
             var result = await _userManager.AddPasswordAsync(user, dto.Password);
 
             if (!result.Succeeded)
@@ -277,21 +292,23 @@ public class AuthService : IAuthService
             await _userManager.UpdateAsync(user);
 
             var body = $@"
-                <p>Bonjour {user.FullName},</p>
-                <p>Votre mot de passe a été réinitialisé avec succès. Vous pouvez maintenant vous connecter avec votre nouveau mot de passe.</p>
-                <p>Si vous n'êtes pas à l'origine de cette action, veuillez contacter notre support immédiatement.</p>
-                <p>Merci,</p>";
+           <p>Bonjour {user.FullName},</p>
+           <p>Votre mot de passe a été réinitialisé avec succès. Vous pouvez maintenant vous connecter avec votre nouveau mot de passe.</p>
+           <p>Si vous n'êtes pas à l'origine de cette action, veuillez contacter notre support immédiatement.</p>
+           <p>Merci,</p>";
 
             await _emailService.SendEmailAsync(user.Email!, "Ehmini : Votre mot de passe a été réinitialisé avec succès", body);
 
             Log.Information($"ResetPassword: password reset successfully for user {dto.Username}");
             Log.Information("--------------- ResetPassword end ---------------");
+
             return new ResetPasswordResponseDto(1, "Votre mot de passe a été réinitialisé avec succès");
         }
         else
         {
             Log.Information($"ResetPassword: password reset failed for user {dto.Username} (Code invalide ou expiré)");
-            Log.Information("--------------- ResetPassword end ---------------");
+            Log.Information("--------------- ResetPassword end---------------");
+
             return new ResetPasswordResponseDto(0, "Echec de réinitialisation de votre mot de passe");
         }
     }
@@ -450,6 +467,14 @@ public class AuthService : IAuthService
             Log.Error($"StackTrace : {ex.StackTrace}");
             return new UpdateUserInfoResponseDto(false, ex.Message);
         }
+    }
+    public async Task<PersonDto> GetPersonAsync(
+    CancellationToken cancellationToken)
+    {
+        var activeProvider = _providerFactory.GetActiveProvider();
+
+        return await activeProvider.GetPersonAsync(
+            cancellationToken);
     }
 
 }
