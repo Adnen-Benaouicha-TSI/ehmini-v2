@@ -26,7 +26,7 @@ public class ApplicationUser : IdentityUser<Guid>
     {
     }
 
-    public static ApplicationUser Create(string username, string email, string fullName, string cin, DateTime birthDate, string countryId,int? addressId, int? professionId)
+    public static ApplicationUser Create(string username, string email, string role, string fullName, string cin, DateTime birthDate, int countryId, int addressId, int professionId)
     {
         return new ApplicationUser
         {
@@ -36,7 +36,7 @@ public class ApplicationUser : IdentityUser<Guid>
             FullName = fullName,
             Cin = cin,
             BirthDate = birthDate,
-            CountryId = 216, //to do,
+            CountryId = countryId,
             AddressId = addressId,
             ProfessionId = professionId,
             CreatedAt = DateTime.UtcNow,

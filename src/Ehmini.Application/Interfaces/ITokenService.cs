@@ -5,7 +5,7 @@ namespace Ehmini.Application.Interfaces;
 
 public interface ITokenService
 {
-    Task<string> GenerateJwtToken(ApplicationUser user);
+    string GenerateJwtToken(ApplicationUser user);
     string GenerateRefreshToken();
     ClaimsPrincipal GetPrincipalFromExpiredToken(string token);
 }

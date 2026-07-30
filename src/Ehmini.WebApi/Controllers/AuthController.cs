@@ -16,16 +16,107 @@ public class AuthController : ControllerBase
     private readonly IAuthService _authService;
     private readonly ITokenService _tokenService;
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly IPkceService _pkceService;
 
-    public AuthController(IAuthService authService, UserManager<ApplicationUser> userManager, ITokenService tokenService)
+    public AuthController(IAuthService authService, UserManager<ApplicationUser> userManager, ITokenService tokenService, IPkceService pkceService)
     {
         _authService = authService;
         _userManager = userManager;
         _tokenService = tokenService;
+        _pkceService = pkceService;
+    }
+
+    [HttpPost("token")]
+    [Consumes("application/x-www-form-urlencoded", "application/json")]
+    public async Task<IActionResult> Token([FromForm][FromBody] OAuthTokenRequestDto request)
+    {
+        // -----------------------------------------------------------------
+        // 1. GRANT TYPE: PASSWORD WITH PKCE
+        // -----------------------------------------------------------------
+        if (string.Equals(request.GrantType, "password", StringComparison.OrdinalIgnoreCase))
+        {
+            if (string.IsNullOrEmpty(request.Username) || string.IsNullOrEmpty(request.Password))
+            {
+                return BadRequest(new { error = "invalid_request", error_description = "Username et Password requis." });
+            }
+
+            // Exigence PKCE : code_verifier et code_challenge sont obligatoires
+            if (string.IsNullOrEmpty(request.CodeVerifier) || string.IsNullOrEmpty(request.CodeChallenge))
+            {
+                return BadRequest(new
+                {
+                    error = "invalid_request",
+                    error_description = "PKCE requis : 'code_verifier' et 'code_challenge' doivent être fournis."
+                });
+            }
+
+            // Validation mathématique du PKCE
+            bool isPkceValid = _pkceService.ValidateCodeVerifier(
+                request.CodeVerifier,
+                request.CodeChallenge,
+                request.CodeChallengeMethod ?? "S256"
+            );
+
+            if (!isPkceValid)
+            {
+                return BadRequest(new
+                {
+                    error = "invalid_grant",
+                    error_description = "Échec de validation PKCE : 'code_verifier' invalide."
+                });
+            }
+
+            // Vérification des identifiants utilisateur (Email / Mot de passe)
+            try
+            {
+                var loginDto = new LoginRequestDto(request.Username, request.Password);
+                var result = await _authService.LoginAsync(loginDto);
+
+                return Ok(new OAuthTokenResponseDto(
+                    access_token: result.AccessToken,
+                    token_type: "Bearer",
+                    expires_in: 15 * 60,
+                    refresh_token: result.RefreshToken
+                ));
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return BadRequest(new { error = "invalid_grant", error_description = ex.Message });
+            }
+        }
+        // -----------------------------------------------------------------
+        // 2. GRANT TYPE: REFRESH TOKEN
+        // -----------------------------------------------------------------
+        else if (string.Equals(request.GrantType, "refresh_token", StringComparison.OrdinalIgnoreCase))
+        {
+            if (string.IsNullOrEmpty(request.RefreshToken))
+            {
+                return BadRequest(new { error = "invalid_request", error_description = "RefreshToken requis." });
+            }
+
+            try
+            {
+                var tokenDto = new TokenRequestDto { AccessToken = string.Empty, RefreshToken = request.RefreshToken };
+                var result = await _authService.RefreshAsync(tokenDto);
+
+                return Ok(new OAuthTokenResponseDto(
+                    access_token: result.AccessToken,
+                    token_type: "Bearer",
+                    expires_in: 15 * 60,
+                    refresh_token: result.RefreshToken
+                ));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { error = "invalid_grant", error_description = ex.Message });
+            }
+        }
+
+        return BadRequest(new { error = "unsupported_grant_type", error_description = "Grant type non supporté." });
     }
 
     [HttpPost("refresh")]
-    [AllowAnonymous] // Indispensable car l'ancien AccessToken est expiré
+    [AllowAnonymous]
     public async Task<IActionResult> Refresh([FromBody] TokenRequestDto request)
     {
         try
@@ -71,13 +162,9 @@ public class AuthController : ControllerBase
             var response = await _authService.LoginAsync(request);
             return Ok(response);
         }
-        catch (Exception ex)
+        catch (UnauthorizedAccessException ex)
         {
-            return Ok(new
-            {
-                id = -2,
-                msg = ex.Message
-            });
+            return Unauthorized(new { message = ex.Message });
         }
     }
 

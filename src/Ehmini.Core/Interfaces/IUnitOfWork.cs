@@ -6,6 +6,6 @@ namespace Ehmini.Core.Interfaces;
 public interface IUnitOfWork
 {
     IDocumentRepository Documents { get; }
-    
+
     Task<int> SaveChangesAsync(CancellationToken ct = default);
 }
