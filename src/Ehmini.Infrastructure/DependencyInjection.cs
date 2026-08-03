@@ -7,6 +7,8 @@ using Ehmini.Core.Interfaces;
 using Ehmini.Infrastructure.Extensions;
 using Ehmini.Infrastructure.Persistence;
 using Ehmini.Infrastructure.Persistence.Repositories;
+using Ehmini.Infrastructure.Persistence.Services;
+using Ehmini.Infrastructure.Providers;
 using Ehmini.Infrastructure.Providers.Pheonix;
 using Ehmini.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer; // 👈 AJOUTÉ
@@ -70,6 +72,7 @@ public static class DependencyInjection
         // 4. Enregistrement des Services et Repositories
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<ITokenService, TokenService>();
+        services.AddScoped<IPkceService, PkceService>();
         services.AddTransient<IApiKeyValidation, ApiKeyValidation>();
         services.AddScoped<IAddressRepository, AddressRepository>();
         services.AddScoped<ICountryRepository, CountryRepository>();

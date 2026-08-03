@@ -61,7 +61,7 @@ public class AuthService : IAuthService
         }
 
         // 4. Générer la nouvelle paire de jetons
-        var newAccessToken = await _tokenService.GenerateJwtToken(user);
+        var newAccessToken = _tokenService.GenerateJwtToken(user);
         var newRefreshToken = _tokenService.GenerateRefreshToken();
 
         // 5. Mettre à jour les informations en Base de Données
@@ -83,26 +83,16 @@ public class AuthService : IAuthService
         var user = await _userManager.FindByEmailAsync(dto.Email);
         if (user == null)
         {
-            return new AuthResponseDto(-1, "Login ou mot de passe invalide",null,null,null);
+            throw new UnauthorizedAccessException("Identifiants incorrects.");
         }
 
         var isPasswordValid = await _userManager.CheckPasswordAsync(user, dto.Password);
         if (!isPasswordValid)
         {
-            return new AuthResponseDto(-1, "Login ou mot de passe invalide", null, null, null);
+            throw new UnauthorizedAccessException("Identifiants incorrects.");
         }
 
-        if (user.IsAccountConfirmed == false)
-        {
-            return new AuthResponseDto(-3, "En attente de confirmation", false, null, null);
-        }
-
-        if (!await _roleManager.RoleExistsAsync("admin"))
-        {
-            await _roleManager.CreateAsync(new IdentityRole<Guid>("admin"));
-        }
-        // 1. Générer l'Access Token (JWT) et définir son expiration (ex: 15 minutes pour OAuth2)
-        var token = await _tokenService.GenerateJwtToken(user);
+        var token = _tokenService.GenerateJwtToken(user);
         var accessTokenExpiration = DateTime.UtcNow.AddMinutes(15);
 
         // 2. ✨ AJOUT : Générer le Refresh Token cryptographique
@@ -115,11 +105,11 @@ public class AuthService : IAuthService
         await _userManager.UpdateAsync(user); // Sauvegarde en Base de Données
 
         return new AuthResponseDto(
-            0,
-            "ok",
-            true,
-            token,
-            refreshToken
+            AccessToken: token,
+            RefreshToken: refreshToken,
+            Expiration: accessTokenExpiration,
+            UserName: user.UserName ?? string.Empty,
+            Email: user.Email ?? string.Empty
         );
     }
 
@@ -127,17 +117,17 @@ public class AuthService : IAuthService
     {
         if (await _userManager.Users.AnyAsync(u => u.Cin == dto.Cin))
         {
-            return new RegisterResponseDto(false, "-3", "CIN Exists");
+            return new RegisterResponseDto("-3", "CIN Exists");
         }
 
         if (await _userManager.Users.AnyAsync(u => u.PhoneNumber == dto.Phone))
         {
-            return new RegisterResponseDto(false, "-1", "Phone Exists");
+            return new RegisterResponseDto("-1", "Phone Exists");
         }
 
         if (await _userManager.Users.AnyAsync(u => u.Email == dto.Email))
         {
-            return new RegisterResponseDto(false, "-2", "Email Exists");
+            return new RegisterResponseDto("-2", "Email Exists");
         }
 
         var confirmationCode = new Random().Next(0, 1000000).ToString("D6");
@@ -145,6 +135,7 @@ public class AuthService : IAuthService
         var user = ApplicationUser.Create(
             dto.Username,
             dto.Email,
+            "ClientEhmini",
             dto.FullName,
             dto.Cin,
             dto.BirthDate,
@@ -160,13 +151,9 @@ public class AuthService : IAuthService
         if (!identityResult.Succeeded)
         {
             var firstError = identityResult.Errors.FirstOrDefault()?.Description ?? "Registration failed";
-            return new RegisterResponseDto(false, "-5", firstError);
+            return new RegisterResponseDto("-5", firstError);
         }
 
-        if (!await _roleManager.RoleExistsAsync("ClientEhmini"))
-        {
-            await _roleManager.CreateAsync(new IdentityRole<Guid>("ClientEhmini"));
-        }
         await _userManager.AddToRoleAsync(user, "ClientEhmini");
 
         var body = $"Votre code de confirmation de création de compte est {confirmationCode}";
@@ -174,14 +161,15 @@ public class AuthService : IAuthService
 
         if (emailSent)
         {
-            return new RegisterResponseDto(true, user.Id.ToString(), "Un Email de confirmation d'inscription a été envoyé");
+            return new RegisterResponseDto(user.Id.ToString(), "Un Email de confirmation d'inscription a été envoyé");
         }
         else
         {
             await _userManager.DeleteAsync(user);
-            return new RegisterResponseDto(false, "-4", "La création de votre compte a échoué (Erreur d'envoi d'email).");
+            return new RegisterResponseDto("-4", "La création de votre compte a échoué (Erreur d'envoi d'email).");
         }
     }
+
 
     public async Task<ChangePasswordResponseDto> ChangePasswordAsync(ChangePasswordRequestDto dto)
     {
@@ -345,7 +333,6 @@ public class AuthService : IAuthService
 
                 return new
                 {
-                    isSuccess = true,
                     id = user.Id.ToString(),
                     msg = "Votre compte a été confirmé avec succès",
                     isSignatureDefined = isSignatureDefined,
@@ -365,7 +352,7 @@ public class AuthService : IAuthService
             Log.Information("--------------- ConfirmAccount end ---------------");
             return new
             {
-                id = 0,
+                id = "0",
                 isSignatureDefined = isSignatureDefined,
                 msg = "Votre compte a déjà été vérifié"
             };
