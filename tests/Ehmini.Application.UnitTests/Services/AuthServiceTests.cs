@@ -1,4 +1,4 @@
-﻿using Ehmini.Application.DTOs.Auth;
+using Ehmini.Application.DTOs.Auth;
 using Ehmini.Application.Interfaces;
 using Ehmini.Application.Services;
 using Ehmini.Application.UnitTests.Helpers;
@@ -115,7 +115,7 @@ public class AuthServiceTests
             Cin: "12345678",
             Phone: "555123",
             BirthDate: DateTime.UtcNow.AddYears(-25),
-            CountryId: "1",
+            CountryId: 1,
             AddressId: 1,
             ProfessionId: 1
         );

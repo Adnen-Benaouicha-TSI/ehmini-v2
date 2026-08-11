@@ -82,8 +82,11 @@ public static class DependencyInjection
         services.AddScoped<IProfessionRepository, ProfessionRepository>();
         services.AddScoped<IRegionRepository, RegionRepository>();
         services.AddScoped<IZoneRepository, ZoneRepository>();
+        services.AddScoped<IPersonService, PersonService>();
         services.AddPhoenixHttpClient<IQuoteProvider, PhoenixQuoteProvider>();
+        services.AddPhoenixHttpClient<IPhoenixTokenService, PhoenixQuoteProvider>();
         services.AddPhoenixHttpClient<IPersonProvider, PhoenixPersonProvider>();
+        services.AddPhoenixHttpClient<IPhoenixPersonSyncService, PhoenixPersonSyncService>();
 
         return services;
     }

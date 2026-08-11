@@ -1,7 +1,6 @@
-﻿using Ehmini.Application.DTOs.Auth;
+using Ehmini.Application.DTOs.Auth;
 using Ehmini.Application.DTOs.Person;
 using Ehmini.Application.Interfaces;
-using Ehmini.Application.Interfaces.PersonProviderService;
 using Ehmini.Core.Entities;
 using Ehmini.Core.Interfaces;
 using Microsoft.AspNetCore.Identity;
@@ -16,7 +15,7 @@ public class AuthService : IAuthService
 {
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly RoleManager<IdentityRole<Guid>> _roleManager;
-    private readonly IPersonProviderFactory _providerFactory;
+    private readonly IPersonService _personService;
     private readonly ITokenService _tokenService;
     private readonly IEmailService _emailService;
     private readonly IUnitOfWork _unitOfWork;
@@ -24,7 +23,7 @@ public class AuthService : IAuthService
 
     public class ValidationException : Exception { public ValidationException(string message) : base(message) { } }
 
-    public AuthService(UserManager<ApplicationUser> userManager, RoleManager<IdentityRole<Guid>> roleManager, ITokenService tokenService, IEmailService emailService, IUnitOfWork unitOfWork, ICountryRepository countryRepository, IPersonProviderFactory personProviderFactory)
+    public AuthService(UserManager<ApplicationUser> userManager, RoleManager<IdentityRole<Guid>> roleManager, ITokenService tokenService, IEmailService emailService, IUnitOfWork unitOfWork, ICountryRepository countryRepository, IPersonService personService)
     {
         _userManager = userManager;
         _tokenService = tokenService;
@@ -32,7 +31,7 @@ public class AuthService : IAuthService
         _unitOfWork = unitOfWork;
         _countryRepository = countryRepository;
         _roleManager = roleManager;
-        _providerFactory = personProviderFactory;
+        _personService = personService;
     }
 
     public async Task<TokenResponseDto> RefreshAsync(TokenRequestDto dto)
@@ -405,63 +404,11 @@ public class AuthService : IAuthService
 
     public async Task<UpdateUserInfoResponseDto> UpdateUserInfoAsync(UpdateUserInfoRequestDto dto)
     {
-        try
-        {
-            Log.Information("---------------api/Auth/updateUser begin---------------");
-
-            var user = await _userManager.Users.FirstOrDefaultAsync(x => x.Cin == dto.Cin);
-
-            if (user == null)
-            {
-                Log.Warning($"api/Auth/updateUser : Impossible de trouver l'utilisateur avec le CIN {dto.Cin}");
-                return new UpdateUserInfoResponseDto(false, $"Impossible de trouver l'utilisateur avec le numéro CIN : {dto.Cin}");
-            }
-
-            if (!string.IsNullOrEmpty(dto.CountryIsoCode))
-            {
-                var country = await _countryRepository.GetByIsoCodeAsync(dto.CountryIsoCode);
-                if (country != null)
-                {
-                    user.CountryId = country.Id;
-                }
-            }
-
-            if (dto.FullName != null) user.FullName = dto.FullName;
-            if (dto.Email != null) user.Email = dto.Email;
-            if (dto.Phone != null) user.PhoneNumber = dto.Phone;
-            if (dto.Signature != null) user.Signature = dto.Signature;
-            if (dto.Birthday != null) user.BirthDate = dto.Birthday.Value;
-
-            if (dto.ProfessionId > 0) user.ProfessionId = dto.ProfessionId;
-            if (dto.AddressId > 0) user.AddressId = dto.AddressId;
-
-            var identityResult = await _userManager.UpdateAsync(user);
-            if (!identityResult.Succeeded)
-            {
-                string errorList = string.Join(", ", identityResult.Errors.Select(e => e.Description));
-                Log.Error($"api/Auth/updateUser Identity Error: {errorList}");
-                return new UpdateUserInfoResponseDto(false, "Échec de la mise à jour des données dans AspNetUsers.");
-            }
-
-            Log.Information($"api/Auth/updateUser : Utilisateur avec CIN {dto.Cin} mis à jour avec succès");
-            Log.Information("---------------api/Auth/updateUser end---------------");
-
-            return new UpdateUserInfoResponseDto(true, "Les informations de l'utilisateur ont été mises à jour avec succès");
-        }
-        catch (Exception ex)
-        {
-            Log.Error($"api/Auth/updateUser Error : {ex.Message}");
-            Log.Error($"StackTrace : {ex.StackTrace}");
-            return new UpdateUserInfoResponseDto(false, ex.Message);
-        }
+        return await _personService.UpdateProfileAsync(dto, CancellationToken.None);
     }
-    public async Task<PersonDto> GetPersonAsync(
-    CancellationToken cancellationToken)
+
+    public async Task<PersonDto> GetPersonAsync(CancellationToken cancellationToken)
     {
-        var activeProvider = _providerFactory.GetActiveProvider();
-
-        return await activeProvider.GetPersonAsync(
-            cancellationToken);
+        return await _personService.GetPersonAsync(cancellationToken);
     }
-
 }

@@ -81,7 +81,7 @@ public class AuthController : ControllerBase
             }
             catch (UnauthorizedAccessException ex)
             {
-                return BadRequest(new { error = "invalid_grant", error_description = ex.Message });
+                return BadRequest(new { error = "invalid_grants", error_description = ex.Message });
             }
         }
         // -----------------------------------------------------------------

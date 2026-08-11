@@ -2,6 +2,7 @@
 using Ehmini.Application.DTOs.Contracts;
 using Ehmini.Application.DTOs.QuotationList;
 using Ehmini.Application.DTOs.Quotes;
+using Ehmini.Application.Interfaces;
 using Ehmini.Application.Interfaces.QuoteProvider;
 using Ehmini.Core.Enum;
 using Microsoft.AspNetCore.Http;
@@ -11,7 +12,7 @@ using System.Net.Http.Json;
 
 namespace Ehmini.Infrastructure.Providers.Pheonix;
 
-public class PhoenixQuoteProvider : IQuoteProvider
+public class PhoenixQuoteProvider : IQuoteProvider, IPhoenixTokenService
 {
     private readonly HttpClient _httpClient;
     private readonly IHttpContextAccessor _httpContextAccessor;
@@ -365,19 +366,24 @@ public class PhoenixQuoteProvider : IQuoteProvider
     {
         var currentToken = _httpContextAccessor.HttpContext?.Request.Headers["Authorization"].ToString();
 
+        using var timeoutCts = new CancellationTokenSource(
+            TimeSpan.FromSeconds(60)
+        );
         if (!string.IsNullOrEmpty(currentToken))
         {
             string pureToken = currentToken.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
                 ? currentToken.Substring(7).Trim()
                 : currentToken.Trim();
 
+            var currentPrincipal = _httpContextAccessor.HttpContext?.User;
+            var cin = currentPrincipal?.FindFirst("cin")?.Value;
+
+            string phoenixToken = await GetPhoenixTokenAsync(cin, timeoutCts.Token);
+
             _httpClient.DefaultRequestHeaders.Authorization =
-                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", pureToken);
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", phoenixToken);
         }
 
-        using var timeoutCts = new CancellationTokenSource(
-            TimeSpan.FromSeconds(60)
-        );
 
         var response = await _httpClient.GetAsync(
             $"api/Be/getQuotations?language={language}",
@@ -411,6 +417,10 @@ public class PhoenixQuoteProvider : IQuoteProvider
             .Request.Headers["Authorization"]
             .ToString();
 
+        using var timeoutCts = new CancellationTokenSource(
+         TimeSpan.FromSeconds(60)
+     );
+
         if (!string.IsNullOrEmpty(currentToken))
         {
             string pureToken = currentToken.StartsWith(
@@ -418,17 +428,20 @@ public class PhoenixQuoteProvider : IQuoteProvider
                 StringComparison.OrdinalIgnoreCase)
                 ? currentToken.Substring(7).Trim()
                 : currentToken.Trim();
+            var currentPrincipal = _httpContextAccessor.HttpContext?.User;
+            var cin = currentPrincipal?.FindFirst("cin")?.Value;
+
+            string phoenixToken = await GetPhoenixTokenAsync(cin, timeoutCts.Token);
 
             _httpClient.DefaultRequestHeaders.Authorization =
-                new System.Net.Http.Headers.AuthenticationHeaderValue(
-                    "Bearer",
-                    pureToken);
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", phoenixToken);
         }
+
 
 
         var response = await _httpClient.GetAsync(
             "api/Be/contracts",
-            cancellationToken);
+            timeoutCts.Token);
 
 
         if (!response.IsSuccessStatusCode)
@@ -467,22 +480,26 @@ public class PhoenixQuoteProvider : IQuoteProvider
         var currentToken = _httpContextAccessor.HttpContext?
             .Request.Headers["Authorization"]
             .ToString();
-
+        using var timeoutCts = new CancellationTokenSource(
+    TimeSpan.FromSeconds(60)
+);
         if (!string.IsNullOrEmpty(currentToken))
         {
             var pureToken = currentToken.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
                 ? currentToken.Substring(7).Trim()
                 : currentToken.Trim();
+            var currentPrincipal = _httpContextAccessor.HttpContext?.User;
+            var cin = currentPrincipal?.FindFirst("cin")?.Value;
+
+            string phoenixToken = await GetPhoenixTokenAsync(cin, timeoutCts.Token);
 
             _httpClient.DefaultRequestHeaders.Authorization =
-                new System.Net.Http.Headers.AuthenticationHeaderValue(
-                    "Bearer",
-                    pureToken);
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", phoenixToken);
         }
 
         var response = await _httpClient.GetAsync(
             "api/Be/GetBrouillonsByUser",
-            cancellationToken);
+            timeoutCts.Token);
 
         if (!response.IsSuccessStatusCode)
         {
