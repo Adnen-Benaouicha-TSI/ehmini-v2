@@ -116,17 +116,32 @@ public class AuthService : IAuthService
     {
         if (await _userManager.Users.AnyAsync(u => u.Cin == dto.Cin))
         {
-            return new RegisterResponseDto("-3", "CIN Exists");
+            return new RegisterResponseDto(false,"-3", "CIN Exists");
         }
 
         if (await _userManager.Users.AnyAsync(u => u.PhoneNumber == dto.Phone))
         {
-            return new RegisterResponseDto("-1", "Phone Exists");
+            return new RegisterResponseDto(false, "-1", "Phone Exists");
         }
 
         if (await _userManager.Users.AnyAsync(u => u.Email == dto.Email))
         {
-            return new RegisterResponseDto("-2", "Email Exists");
+            return new RegisterResponseDto(false, "-2", "Email Exists");
+        }
+        int addressId = dto.AddressId;
+        int professionId = dto.ProfessionId;
+        if (dto.AddressId == 0)
+        {
+            addressId = 8;
+        }
+        if (dto.ProfessionId == 0)
+        {
+            professionId = 1;
+        }
+        var country = await _countryRepository.GetByIsoCodeAsync(dto.CountryId);
+        if (country == null)
+        {
+            return new RegisterResponseDto(false, "-6", "La création de votre compte a échoué (Erreur de country not existe).");
         }
 
         var confirmationCode = new Random().Next(0, 1000000).ToString("D6");
@@ -150,7 +165,7 @@ public class AuthService : IAuthService
         if (!identityResult.Succeeded)
         {
             var firstError = identityResult.Errors.FirstOrDefault()?.Description ?? "Registration failed";
-            return new RegisterResponseDto("-5", firstError);
+            return new RegisterResponseDto(false, "-5", firstError);
         }
 
         await _userManager.AddToRoleAsync(user, "ClientEhmini");
@@ -160,12 +175,12 @@ public class AuthService : IAuthService
 
         if (emailSent)
         {
-            return new RegisterResponseDto(user.Id.ToString(), "Un Email de confirmation d'inscription a été envoyé");
+            return new RegisterResponseDto(true, user.Id.ToString(), "Un Email de confirmation d'inscription a été envoyé");
         }
         else
         {
             await _userManager.DeleteAsync(user);
-            return new RegisterResponseDto("-4", "La création de votre compte a échoué (Erreur d'envoi d'email).");
+            return new RegisterResponseDto(false, "-4", "La création de votre compte a échoué (Erreur d'envoi d'email).");
         }
     }
 
