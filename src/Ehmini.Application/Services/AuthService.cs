@@ -131,16 +131,16 @@ public class AuthService : IAuthService
 
         var confirmationCode = new Random().Next(0, 1000000).ToString("D6");
 
+
         var user = ApplicationUser.Create(
             dto.Username,
             dto.Email,
-            "ClientEhmini",
             dto.FullName,
             dto.Cin,
             dto.BirthDate,
-            dto.CountryId,
-            dto.AddressId,
-            dto.ProfessionId
+            1,
+            8,
+            1
         );
 
         user.PhoneNumber = dto.Phone;

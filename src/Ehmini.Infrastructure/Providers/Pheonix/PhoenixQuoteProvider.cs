@@ -104,7 +104,9 @@ public class PhoenixQuoteProvider : IQuoteProvider, IPhoenixTokenService
     //        ExpiresAt: DateTime.UtcNow.AddDays(30)
     //    );
     //}
-    public async Task<string> GetPhoenixTokenAsync(string cin, CancellationToken cancellationToken)
+    public async Task<PhoenixTokenResponse> GetPhoenixTokenAsync(
+        string cin,
+        CancellationToken cancellationToken)
     {
         var payload = new
         {
@@ -114,16 +116,23 @@ public class PhoenixQuoteProvider : IQuoteProvider, IPhoenixTokenService
             user_cin = cin
         };
 
-        var response = await _httpClient.PostAsJsonAsync("api/oauth/token", payload, cancellationToken);
+        var response = await _httpClient.PostAsJsonAsync(
+            "api/oauth/token",
+            payload,
+            cancellationToken);
 
         if (!response.IsSuccessStatusCode)
         {
             var error = await response.Content.ReadAsStringAsync(cancellationToken);
-            throw new HttpRequestException($"Échec d'obtention du token Phoenix: {response.StatusCode} - {error}");
+
+            throw new HttpRequestException(
+                $"Échec d'obtention du token Phoenix: {response.StatusCode} - {error}");
         }
 
-        var result = await response.Content.ReadFromJsonAsync<PhoenixTokenResponse>(cancellationToken: cancellationToken);
-        return result.access_token;
+        var result = await response.Content.ReadFromJsonAsync<PhoenixTokenResponse>(
+            cancellationToken: cancellationToken);
+
+        return result;
     }
     public async Task<ProviderQuoteResponseDto> GenerateQuoteAsync(qModel phoenixPayload, CancellationToken cancellationToken)
     {
@@ -139,7 +148,7 @@ public class PhoenixQuoteProvider : IQuoteProvider, IPhoenixTokenService
             }
 
             // 2. Échanger contre un token Phoenix (via client_credentials + cin)
-            string phoenixToken = await GetPhoenixTokenAsync(cin, cancellationToken);
+            string phoenixToken = (await GetPhoenixTokenAsync(cin, cancellationToken)).access_token;
 
             _httpClient.DefaultRequestHeaders.Authorization =
                 new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", phoenixToken);
@@ -378,7 +387,7 @@ public class PhoenixQuoteProvider : IQuoteProvider, IPhoenixTokenService
             var currentPrincipal = _httpContextAccessor.HttpContext?.User;
             var cin = currentPrincipal?.FindFirst("cin")?.Value;
 
-            string phoenixToken = await GetPhoenixTokenAsync(cin, timeoutCts.Token);
+            string phoenixToken = (await GetPhoenixTokenAsync(cin, timeoutCts.Token)).access_token;
 
             _httpClient.DefaultRequestHeaders.Authorization =
                 new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", phoenixToken);
@@ -431,7 +440,7 @@ public class PhoenixQuoteProvider : IQuoteProvider, IPhoenixTokenService
             var currentPrincipal = _httpContextAccessor.HttpContext?.User;
             var cin = currentPrincipal?.FindFirst("cin")?.Value;
 
-            string phoenixToken = await GetPhoenixTokenAsync(cin, timeoutCts.Token);
+            string phoenixToken = (await GetPhoenixTokenAsync(cin, timeoutCts.Token)).access_token;
 
             _httpClient.DefaultRequestHeaders.Authorization =
                 new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", phoenixToken);
@@ -491,7 +500,7 @@ public class PhoenixQuoteProvider : IQuoteProvider, IPhoenixTokenService
             var currentPrincipal = _httpContextAccessor.HttpContext?.User;
             var cin = currentPrincipal?.FindFirst("cin")?.Value;
 
-            string phoenixToken = await GetPhoenixTokenAsync(cin, timeoutCts.Token);
+            string phoenixToken = (await GetPhoenixTokenAsync(cin, timeoutCts.Token)).access_token;
 
             _httpClient.DefaultRequestHeaders.Authorization =
                 new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", phoenixToken);

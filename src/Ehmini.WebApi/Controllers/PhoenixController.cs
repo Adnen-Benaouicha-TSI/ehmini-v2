@@ -23,11 +23,16 @@ public class PhoenixController : ControllerBase
 
         if (string.IsNullOrEmpty(cin))
         {
-            return Unauthorized(new { message = "cin introuvable dans le token utilisateur." });
+            return Unauthorized(new
+            {
+                message = "cin introuvable dans le token utilisateur."
+            });
         }
 
-        var accessToken = await _phoenixTokenService.GetPhoenixTokenAsync(cin, cancellationToken);
+        var token = await _phoenixTokenService.GetPhoenixTokenAsync(
+            cin,
+            cancellationToken);
 
-        return Ok(new { access_token = accessToken });
+        return Ok(token);
     }
 }

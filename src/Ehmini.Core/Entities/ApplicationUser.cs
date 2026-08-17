@@ -26,7 +26,7 @@ public class ApplicationUser : IdentityUser<Guid>
     {
     }
 
-    public static ApplicationUser Create(string username, string email, string role, string fullName, string cin, DateTime birthDate, int countryId, int addressId, int professionId)
+    public static ApplicationUser Create(string username, string email,string fullName, string cin, DateTime birthDate, int countryId, int addressId, int professionId)
     {
         return new ApplicationUser
         {

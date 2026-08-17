@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Ehmini.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260813113757_applicationdbContextv2")]
+    partial class applicationdbContextv2
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -228,7 +231,7 @@ namespace Ehmini.Infrastructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Documents", (string)null);
+                    b.ToTable("Documents");
                 });
 
             modelBuilder.Entity("Ehmini.Core.Entities.DocumentDetail", b =>
@@ -259,7 +262,7 @@ namespace Ehmini.Infrastructure.Migrations
 
                     b.HasIndex("DocumentId");
 
-                    b.ToTable("DocumentDetails", (string)null);
+                    b.ToTable("DocumentDetails");
                 });
 
             modelBuilder.Entity("Ehmini.Core.Entities.Locality", b =>
@@ -317,7 +320,7 @@ namespace Ehmini.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Prestataires", (string)null);
+                    b.ToTable("Prestataires");
                 });
 
             modelBuilder.Entity("Ehmini.Core.Entities.Profession", b =>

@@ -1,6 +1,8 @@
+using Ehmini.Application.DTOs.Quotes;
+
 namespace Ehmini.Application.Interfaces;
 
 public interface IPhoenixTokenService
 {
-    Task<string> GetPhoenixTokenAsync(string cin, CancellationToken cancellationToken);
+    Task<PhoenixTokenResponse> GetPhoenixTokenAsync(string cin, CancellationToken cancellationToken);
 }
