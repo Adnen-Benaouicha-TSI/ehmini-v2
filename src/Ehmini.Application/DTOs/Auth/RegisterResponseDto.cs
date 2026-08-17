@@ -4,5 +4,5 @@ using System.Text;
 
 namespace Ehmini.Application.DTOs.Auth
 {
-    public record RegisterResponseDto(string Id, string Msg);
+    public record RegisterResponseDto(bool IsSuccess, string Id, string Msg);
 }

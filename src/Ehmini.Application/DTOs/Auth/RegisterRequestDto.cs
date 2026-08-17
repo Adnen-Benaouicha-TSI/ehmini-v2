@@ -8,7 +8,7 @@ public record RegisterRequestDto(
     string Cin,
     string Phone,
     DateTime BirthDate,
-    int CountryId,
+    string CountryId,
     int AddressId,
     int ProfessionId
 );
