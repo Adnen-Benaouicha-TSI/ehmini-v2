@@ -27,7 +27,8 @@ public class PhoenixPersonSyncService : IPhoenixPersonSyncService
             Phone = dto.Phone,
             CountryIsoCode = dto.CountryIsoCode,
             Birthday = dto.Birthday,
-            ProfessionId = dto.ProfessionId
+            ProfessionId = dto.ProfessionId,
+            Signature = dto.Signature
         };
 
         var jsonContent = new StringContent(
