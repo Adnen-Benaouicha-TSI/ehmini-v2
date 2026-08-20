@@ -73,7 +73,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("IonicCorsPolicy", policy =>
     {
-        policy.WithOrigins("http://localhost:8100")
+        policy.WithOrigins("*")
               .AllowAnyHeader()
               .AllowAnyMethod();
     });

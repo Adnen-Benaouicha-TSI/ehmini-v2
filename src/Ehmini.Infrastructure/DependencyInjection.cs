@@ -27,7 +27,6 @@ public static class DependencyInjection
     {
         services.AddDataProtection();
 
-        // 1. Base de données
         services.AddDbContext<ApplicationDbContext>(options =>
             options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
 

@@ -116,7 +116,7 @@ public class AuthService : IAuthService
     {
         if (await _userManager.Users.AnyAsync(u => u.Cin == dto.Cin))
         {
-            return new RegisterResponseDto(false,"-3", "CIN Exists");
+            return new RegisterResponseDto(false, "-3", "CIN Exists");
         }
 
         if (await _userManager.Users.AnyAsync(u => u.PhoneNumber == dto.Phone))
@@ -325,7 +325,7 @@ public class AuthService : IAuthService
         {
             Log.Information($"ConfirmAccount : user {dto.Username} not found or invalid password");
             Log.Information("--------------- ConfirmAccount end ---------------");
-            return new { id = -1, msg = "La confirmation de votre compte a échoué, veuillez vérifier vos informations ou contacter votre agence" };
+            return new { id = -1, msg = "La confirmation de votre compte a échoué, veuillez vérifier vos informations ou contacter votre agence", isSuccess = false };
         }
 
         bool isSignatureDefined = user.Signature != null;
@@ -350,14 +350,15 @@ public class AuthService : IAuthService
                     id = user.Id.ToString(),
                     msg = "Votre compte a été confirmé avec succès",
                     isSignatureDefined = isSignatureDefined,
-                    token = _tokenService.GenerateJwtToken(user)
+                    token = _tokenService.GenerateJwtToken(user),
+                    isSuccess = true
                 };
             }
             else
             {
                 Log.Information($"ConfirmAccount : user {dto.Username} Invalid account confirmation attempt");
                 Log.Information("--------------- ConfirmAccount end ---------------");
-                return new { id = -1, msg = "La confirmation de votre compte a échoué, veuillez vérifier vos informations ou contacter votre agence" };
+                return new { id = -1, msg = "La confirmation de votre compte a échoué, veuillez vérifier vos informations ou contacter votre agence", isSuccess = false };
             }
         }
         else
