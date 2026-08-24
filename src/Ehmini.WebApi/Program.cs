@@ -71,9 +71,13 @@ builder.Services.AddSwaggerGen(c =>
 // ==========================================
 builder.Services.AddCors(options =>
 {
+    var allowedOrigins = builder.Configuration
+        .GetSection("AllowedHosts:AllowedOrigins")
+        .Get<string[]>() ?? [];
+
     options.AddPolicy("IonicCorsPolicy", policy =>
     {
-        policy.WithOrigins("*")
+        policy.WithOrigins(allowedOrigins)
               .AllowAnyHeader()
               .AllowAnyMethod();
     });
