@@ -9,7 +9,7 @@ public class ApplicationUser : IdentityUser<Guid>
     public string FullName { get; set; } = string.Empty;
     public string Cin { get; set; } = string.Empty;
     public DateTime BirthDate { get; set; }
-    public int CountryId { get; set; }
+    public int? CountryId { get; set; }
     public int Status { get; set; }
     public bool IsAccountConfirmed { get; set; }
     public string? AccountConfirmationToken { get; set; }
@@ -21,6 +21,7 @@ public class ApplicationUser : IdentityUser<Guid>
     public Address? Address { get; set; }
     public string? RefreshToken { get; set; }
     public DateTime RefreshTokenExpiryTime { get; set; }
+    public Country? Country { get; set; }
 
     public ApplicationUser()
     {

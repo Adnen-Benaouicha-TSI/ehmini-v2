@@ -153,9 +153,9 @@ public class AuthService : IAuthService
             dto.FullName,
             dto.Cin,
             dto.BirthDate,
-            1,
-            8,
-            1
+            country.Id,
+            addressId,
+            professionId
         );
 
         user.PhoneNumber = dto.Phone;

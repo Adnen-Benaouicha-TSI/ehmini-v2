@@ -37,11 +37,11 @@ public class PersonService : IPersonService
 
         var user = await _userManager.Users
             .Include(u => u.Profession)
+            .Include(u => u.Country)
             .Include(u => u.Address)
                 .ThenInclude(a => a!.Locality)
                     .ThenInclude(l => l.Zone)
                         .ThenInclude(z => z.Region)
-                            .ThenInclude(r => r.Country)
             .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
 
         if (user == null)
@@ -144,7 +144,7 @@ public class PersonService : IPersonService
         var locality = address?.Locality;
         var zone = locality?.Zone;
         var region = zone?.Region;
-        var country = region?.Country;
+        var country = user?.Country;
 
         // Split FullName into first/last for compatibility with PersonDto
         var nameParts = (user.FullName ?? string.Empty).Split(' ', 2);

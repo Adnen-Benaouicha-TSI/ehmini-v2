@@ -137,6 +137,10 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, IdentityR
                 .WithMany()
                 .HasForeignKey(u => u.AddressId)
                 .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(u => u.Country)
+                 .WithMany()
+                 .HasForeignKey(u => u.CountryId)
+                 .OnDelete(DeleteBehavior.SetNull);
         });
     }
 }
