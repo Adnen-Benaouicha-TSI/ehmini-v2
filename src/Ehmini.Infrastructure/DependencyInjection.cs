@@ -82,10 +82,10 @@ public static class DependencyInjection
         services.AddScoped<IRegionRepository, RegionRepository>();
         services.AddScoped<IZoneRepository, ZoneRepository>();
         services.AddScoped<IPersonService, PersonService>();
-        services.AddPhoenixHttpClient<IQuoteProvider, PhoenixQuoteProvider>();
-        services.AddPhoenixHttpClient<IPhoenixTokenService, PhoenixQuoteProvider>();
-        services.AddPhoenixHttpClient<IPersonProvider, PhoenixPersonProvider>();
-        services.AddPhoenixHttpClient<IPhoenixPersonSyncService, PhoenixPersonSyncService>();
+        services.AddPhoenixHttpClient<IQuoteProvider, PhoenixQuoteProvider>(configuration);
+        services.AddPhoenixHttpClient<IPhoenixTokenService, PhoenixQuoteProvider>(configuration);
+        services.AddPhoenixHttpClient<IPersonProvider, PhoenixPersonProvider>(configuration);
+        services.AddPhoenixHttpClient<IPhoenixPersonSyncService, PhoenixPersonSyncService>(configuration);
 
         return services;
     }
