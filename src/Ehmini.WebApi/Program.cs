@@ -98,7 +98,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+//app.UseHttpsRedirection();
 
 // Activation de CORS avant l'authentification
 app.UseCors("IonicCorsPolicy");

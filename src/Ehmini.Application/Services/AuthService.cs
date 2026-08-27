@@ -114,73 +114,81 @@ public class AuthService : IAuthService
 
     public async Task<RegisterResponseDto> RegisterAsync(RegisterRequestDto dto)
     {
-        if (await _userManager.Users.AnyAsync(u => u.Cin == dto.Cin))
+        try
         {
-            return new RegisterResponseDto(false, "-3", "CIN Exists");
+            if (await _userManager.Users.AnyAsync(u => u.Cin == dto.Cin))
+            {
+                return new RegisterResponseDto(false, "-3", "CIN Exists");
+            }
+
+            if (await _userManager.Users.AnyAsync(u => u.PhoneNumber == dto.Phone))
+            {
+                return new RegisterResponseDto(false, "-1", "Phone Exists");
+            }
+
+            if (await _userManager.Users.AnyAsync(u => u.Email == dto.Email))
+            {
+                return new RegisterResponseDto(false, "-2", "Email Exists");
+            }
+            int addressId = dto.AddressId;
+            int professionId = dto.ProfessionId;
+            if (dto.AddressId == 0)
+            {
+                addressId = 8;
+            }
+            if (dto.ProfessionId == 0)
+            {
+                professionId = 1;
+            }
+            var country = await _countryRepository.GetByIsoCodeAsync(dto.CountryId);
+            if (country == null)
+            {
+                return new RegisterResponseDto(false, "-6", "La création de votre compte a échoué (Erreur de country not existe).");
+            }
+
+            var confirmationCode = new Random().Next(0, 1000000).ToString("D6");
+
+
+            var user = ApplicationUser.Create(
+                dto.Username,
+                dto.Email,
+                dto.FullName,
+                dto.Cin,
+                dto.BirthDate,
+                country.Id,
+                addressId,
+                professionId
+            );
+
+            user.PhoneNumber = dto.Phone;
+            user.AccountConfirmationToken = confirmationCode;
+
+            var identityResult = await _userManager.CreateAsync(user, dto.Password);
+            if (!identityResult.Succeeded)
+            {
+                var firstError = identityResult.Errors.FirstOrDefault()?.Description ?? "Registration failed";
+                return new RegisterResponseDto(false, "-5", firstError);
+            }
+
+            await _userManager.AddToRoleAsync(user, "ClientEhmini");
+
+            var body = $"Votre code de confirmation de création de compte est {confirmationCode}";
+            bool emailSent = await _emailService.SendEmailAsync(user.Email!, "Account confirmation token", body);
+
+            if (emailSent)
+            {
+                return new RegisterResponseDto(true, user.Id.ToString(), "Un Email de confirmation d'inscription a été envoyé");
+            }
+            else
+            {
+                await _userManager.DeleteAsync(user);
+                return new RegisterResponseDto(false, "-4", "La création de votre compte a échoué (Erreur d'envoi d'email).");
+            }
         }
-
-        if (await _userManager.Users.AnyAsync(u => u.PhoneNumber == dto.Phone))
+        catch (Exception ex)
         {
-            return new RegisterResponseDto(false, "-1", "Phone Exists");
-        }
 
-        if (await _userManager.Users.AnyAsync(u => u.Email == dto.Email))
-        {
-            return new RegisterResponseDto(false, "-2", "Email Exists");
-        }
-        int addressId = dto.AddressId;
-        int professionId = dto.ProfessionId;
-        if (dto.AddressId == 0)
-        {
-            addressId = 8;
-        }
-        if (dto.ProfessionId == 0)
-        {
-            professionId = 1;
-        }
-        var country = await _countryRepository.GetByIsoCodeAsync(dto.CountryId);
-        if (country == null)
-        {
-            return new RegisterResponseDto(false, "-6", "La création de votre compte a échoué (Erreur de country not existe).");
-        }
-
-        var confirmationCode = new Random().Next(0, 1000000).ToString("D6");
-
-
-        var user = ApplicationUser.Create(
-            dto.Username,
-            dto.Email,
-            dto.FullName,
-            dto.Cin,
-            dto.BirthDate,
-            country.Id,
-            addressId,
-            professionId
-        );
-
-        user.PhoneNumber = dto.Phone;
-        user.AccountConfirmationToken = confirmationCode;
-
-        var identityResult = await _userManager.CreateAsync(user, dto.Password);
-        if (!identityResult.Succeeded)
-        {
-            var firstError = identityResult.Errors.FirstOrDefault()?.Description ?? "Registration failed";
-            return new RegisterResponseDto(false, "-5", firstError);
-        }
-
-        await _userManager.AddToRoleAsync(user, "ClientEhmini");
-
-        var body = $"Votre code de confirmation de création de compte est {confirmationCode}";
-        bool emailSent = await _emailService.SendEmailAsync(user.Email!, "Account confirmation token", body);
-
-        if (emailSent)
-        {
-            return new RegisterResponseDto(true, user.Id.ToString(), "Un Email de confirmation d'inscription a été envoyé");
-        }
-        else
-        {
-            await _userManager.DeleteAsync(user);
-            return new RegisterResponseDto(false, "-4", "La création de votre compte a échoué (Erreur d'envoi d'email).");
+            throw;
         }
     }
 

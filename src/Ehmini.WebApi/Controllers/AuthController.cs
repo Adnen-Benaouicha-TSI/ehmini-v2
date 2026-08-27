@@ -5,7 +5,9 @@ using Ehmini.Core.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Serilog;
+using Serilog.Core;
 
 namespace Ehmini.WebApi.Controllers;
 
@@ -17,13 +19,15 @@ public class AuthController : ControllerBase
     private readonly ITokenService _tokenService;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IPkceService _pkceService;
+    private readonly ILogger<AuthController> _logger ;
 
-    public AuthController(IAuthService authService, UserManager<ApplicationUser> userManager, ITokenService tokenService, IPkceService pkceService)
+    public AuthController(IAuthService authService, UserManager<ApplicationUser> userManager, ITokenService tokenService, IPkceService pkceService, ILogger<AuthController> logger)
     {
         _authService = authService;
         _userManager = userManager;
         _tokenService = tokenService;
         _pkceService = pkceService;
+        _logger = logger;
     }
 
     [HttpPost("token")]
@@ -151,8 +155,21 @@ public class AuthController : ControllerBase
         {
             return BadRequest(new { message = ex.Message });
         }
+        catch (DbUpdateException ex)
+        {
+            _logger.LogError(
+                   ex,
+                   "Database error while registering user. CIN={Cin}, Email={Email}",
+                   request.Cin,
+                   request.Email
+               );
+            return StatusCode(500, new
+            {
+                message = ex.Message,
+                innerException = ex.InnerException?.Message
+            });
+        }
     }
-
     [HttpPost("login")]
     [AllowAnonymous]
     public async Task<IActionResult> Login([FromBody] LoginRequestDto request)
