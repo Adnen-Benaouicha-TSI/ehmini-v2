@@ -60,7 +60,7 @@ public class AuthService : IAuthService
         }
 
         // 4. Générer la nouvelle paire de jetons
-        var newAccessToken = _tokenService.GenerateJwtToken(user);
+        var newAccessToken = await _tokenService.GenerateJwtTokenAsync(user);
         var newRefreshToken = _tokenService.GenerateRefreshToken();
 
         // 5. Mettre à jour les informations en Base de Données
@@ -91,7 +91,7 @@ public class AuthService : IAuthService
             throw new UnauthorizedAccessException("Identifiants incorrects.");
         }
 
-        var token = _tokenService.GenerateJwtToken(user);
+        var token = await _tokenService.GenerateJwtTokenAsync(user);
         var accessTokenExpiration = DateTime.UtcNow.AddMinutes(15);
 
         // 2. ✨ AJOUT : Générer le Refresh Token cryptographique
@@ -350,7 +350,7 @@ public class AuthService : IAuthService
                     id = user.Id.ToString(),
                     msg = "Votre compte a été confirmé avec succès",
                     isSignatureDefined = isSignatureDefined,
-                    token = _tokenService.GenerateJwtToken(user),
+                    token = await _tokenService.GenerateJwtTokenAsync(user),
                     isSuccess = true
                 };
             }

@@ -1,5 +1,6 @@
 using Ehmini.Application.Interfaces;
 using Ehmini.Core.Entities;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
@@ -12,69 +13,44 @@ namespace Ehmini.Application.Services;
 public class TokenService : ITokenService
 {
     private readonly IConfiguration _configuration;
+    private readonly UserManager<ApplicationUser> _userManager;
 
-    public TokenService(IConfiguration configuration)
+    public TokenService(IConfiguration configuration, UserManager<ApplicationUser> userManager)
     {
         _configuration = configuration;
+        _userManager = userManager;
     }
 
-    //public string GenerateJwtToken(ApplicationUser user)
-    //{
-    //    var jwtSettings = _configuration.GetSection("JwtSettings");
-    //    var secretKey = jwtSettings["Secret"] ?? throw new InvalidOperationException("JWT Secret absent.");
-
-    //    var claims = new[]
-    //    {
-    //        new Claim("userId", user.Id.ToString()),
-    //        new Claim(ClaimTypes.Email, user.Email ?? string.Empty),
-    //        new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-    //        new Claim("unid", user.Cin ?? string.Empty)
-    //    };
-
-    //    var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
-    //    var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-
-    //    var token = new JwtSecurityToken(
-    //        issuer: jwtSettings["Issuer"],
-    //        audience: jwtSettings["Audience"],
-    //        claims: claims,
-    //        expires: DateTime.UtcNow.AddMinutes(15),
-    //        signingCredentials: creds
-    //    );
-
-    //    return new JwtSecurityTokenHandler().WriteToken(token);
-    //}
-
-    public string GenerateJwtToken(ApplicationUser user)
+    public async Task<string> GenerateJwtTokenAsync(ApplicationUser user)
     {
         var jwtSettings = _configuration.GetSection("JwtSettings");
         var secretKey = jwtSettings["Secret"] ?? throw new InvalidOperationException("JWT Secret absent.");
 
-        var claims = new[]
+        // Récupère les rôles via la jointure AspNetUserRoles <-> AspNetRoles (gérée par Identity)
+        var roles = await _userManager.GetRolesAsync(user);
+
+        var claims = new List<Claim>
         {
-            // 💡 CRUCIAL : Standard OAuth2 / OpenID (Sub & NameIdentifier)
             new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
             new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-
-            // Conservé pour rétrocompatibilité interne si nécessaire
             new Claim("userId", user.Id.ToString()),
 
-            new Claim(ClaimTypes.Email, user.Email ?? string.Empty),
+            // "email" en nom court pour matcher decoded.email côté Angular
+            new Claim(JwtRegisteredClaimNames.Email, user.Email ?? string.Empty),
+
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-            new Claim("unid", user.Cin ?? string.Empty),
             new Claim("cin", user.Cin ?? string.Empty),
+
+            // Champs présents sur ApplicationUser
+            new Claim("fullName", user.FullName ?? string.Empty),
+            new Claim("phone", user.PhoneNumber ?? string.Empty),
         };
-        //        var claims = new[]
-        //        {
-        //            new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
 
-        //            // Claims dont vous avez besoin dans Phoenix
-        //            new Claim("cin", user.Cin ?? string.Empty),
-        //            new Claim("unid", user.Cin ?? string.Empty), // Conservé si utilisé ailleurs
-        //            new Claim(JwtRegisteredClaimNames.Email, user.Email ?? string.Empty),
-
-        //            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
-        //};
+        // Une claim ClaimTypes.Role par rôle -> reste compatible avec [Authorize(Roles = "Administrateur")]
+        foreach (var role in roles)
+        {
+            claims.Add(new Claim(ClaimTypes.Role, role));
+        }
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
@@ -89,6 +65,51 @@ public class TokenService : ITokenService
 
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
+
+    //public string GenerateJwtToken(ApplicationUser user)
+    //{
+    //    var jwtSettings = _configuration.GetSection("JwtSettings");
+    //    var secretKey = jwtSettings["Secret"] ?? throw new InvalidOperationException("JWT Secret absent.");
+
+    //    var claims = new[]
+    //    {
+    //        // 💡 CRUCIAL : Standard OAuth2 / OpenID (Sub & NameIdentifier)
+    //        new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+    //        new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+
+    //        // Conservé pour rétrocompatibilité interne si nécessaire
+    //        new Claim("userId", user.Id.ToString()),
+
+    //        new Claim(ClaimTypes.Email, user.Email ?? string.Empty),
+    //        new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+    //        new Claim("unid", user.Cin ?? string.Empty),
+    //        new Claim("cin", user.Cin ?? string.Empty),
+    //    };
+    //    //        var claims = new[]
+    //    //        {
+    //    //            new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+
+    //    //            // Claims dont vous avez besoin dans Phoenix
+    //    //            new Claim("cin", user.Cin ?? string.Empty),
+    //    //            new Claim("unid", user.Cin ?? string.Empty), // Conservé si utilisé ailleurs
+    //    //            new Claim(JwtRegisteredClaimNames.Email, user.Email ?? string.Empty),
+
+    //    //            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+    //    //};
+
+    //    var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
+    //    var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+    //    var token = new JwtSecurityToken(
+    //        issuer: jwtSettings["Issuer"],
+    //        audience: jwtSettings["Audience"],
+    //        claims: claims,
+    //        expires: DateTime.UtcNow.AddMinutes(15),
+    //        signingCredentials: creds
+    //    );
+
+    //    return new JwtSecurityTokenHandler().WriteToken(token);
+    //}
 
     // 2. Génération d'un Refresh Token Aléatoire et Cryptographique
     public string GenerateRefreshToken()
