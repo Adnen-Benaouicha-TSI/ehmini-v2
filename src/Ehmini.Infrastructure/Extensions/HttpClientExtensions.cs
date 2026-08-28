@@ -18,11 +18,20 @@ namespace Ehmini.Infrastructure.Extensions
                 throw new ArgumentException("Phoenix base URL is not configured.", nameof(baseUrl));
             }
 
-            return services.AddHttpClient<TClient, TImplementation>(client =>
-            {
-                client.BaseAddress = new Uri(baseUrl);
-                client.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
-            });
+            return services
+          .AddHttpClient<TClient, TImplementation>(client =>
+          {
+              client.BaseAddress = new Uri(baseUrl);
+              client.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
+          })
+          .ConfigurePrimaryHttpMessageHandler(() =>
+          {
+              return new HttpClientHandler
+              {
+                  ServerCertificateCustomValidationCallback =
+                      HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+              };
+          });
         }
     }
 }
