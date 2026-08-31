@@ -137,10 +137,10 @@ public class DocumentsController : ControllerBase
     [ProducesResponseType(typeof(List<qModel>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> GetContracts(
+    public async Task<IActionResult> GetContracts([FromQuery] int language,
     CancellationToken cancellationToken)
     {
-        var contracts = await _orchestrationService.GetContractsAsync(
+        var contracts = await _orchestrationService.GetContractsAsync(language,
             cancellationToken);
 
         return Ok(contracts);

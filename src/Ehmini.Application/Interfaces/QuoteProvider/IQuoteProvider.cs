@@ -16,7 +16,7 @@ namespace Ehmini.Application.Interfaces.QuoteProvider
         Task<ProviderQuoteResponseDto> GenerateQuoteAsync(qModel request, CancellationToken cancellationToken);
         Task<ProviderQuoteResponseDto> UpdateQuoteAsync(qModel request, CancellationToken cancellationToken);
         Task<List<ProviderQuotationDto>> GetQuotationsAsync(int language, CancellationToken cancellationToken);
-        Task<List<qModel>> GetContractsAsync(CancellationToken cancellationToken);
+        Task<List<qModel>> GetContractsAsync(int language, CancellationToken cancellationToken);
         Task<List<BrouillonDto>> GetBrouillonsByUserAsync(
          CancellationToken cancellationToken);
     }

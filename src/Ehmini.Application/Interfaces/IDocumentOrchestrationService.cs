@@ -15,7 +15,7 @@ namespace Ehmini.Application.Interfaces
         Task<DocumentResponseDto> UpdateAndSaveQuoteAsync(Guid documentId, qModel quoteRequest, CancellationToken cancellationToken);
         Task<bool> DeleteDocumentAsync(Guid documentId, CancellationToken cancellationToken);
         Task<List<ProviderQuotationDto>> GetQuotationsAsync(int language,CancellationToken cancellationToken);
-        Task<List<qModel>> GetContractsAsync(CancellationToken cancellationToken);
+        Task<List<qModel>> GetContractsAsync(int language, CancellationToken cancellationToken);
         Task<List<BrouillonDto>> GetBrouillonsByUserAsync(CancellationToken cancellationToken);
     }
 }

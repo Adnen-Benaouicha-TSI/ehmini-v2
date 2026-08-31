@@ -419,8 +419,7 @@ public class PhoenixQuoteProvider : IQuoteProvider, IPhoenixTokenService
 
         return apiResult.Data;
     }
-    public async Task<List<qModel>> GetContractsAsync(
-      CancellationToken cancellationToken)
+    public async Task<List<qModel>> GetContractsAsync(int language, CancellationToken cancellationToken)
     {
         var currentToken = _httpContextAccessor.HttpContext?
             .Request.Headers["Authorization"]
@@ -449,7 +448,7 @@ public class PhoenixQuoteProvider : IQuoteProvider, IPhoenixTokenService
 
 
         var response = await _httpClient.GetAsync(
-            "api/Be/contracts",
+            $"api/Be/contracts?language={language}",
             timeoutCts.Token);
 
 

@@ -232,11 +232,11 @@ public class DocumentOrchestrationService : IDocumentOrchestrationService
             .GetQuotationsAsync(language, cancellationToken);
     }
     public async Task<List<qModel>> GetContractsAsync(
-    CancellationToken cancellationToken)
+    int language, CancellationToken cancellationToken)
     {
         return await _providerFactory
             .GetActiveProvider()
-            .GetContractsAsync(cancellationToken);
+            .GetContractsAsync(language, cancellationToken);
     }
     public async Task<List<BrouillonDto>> GetBrouillonsByUserAsync(
 CancellationToken cancellationToken)
