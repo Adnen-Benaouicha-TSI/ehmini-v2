@@ -8,6 +8,7 @@ namespace Ehmini.Application.DTOs.Quotes
     string Reference,
     decimal TotalAmount,
     List<QuoteLineDto> Lines,
-    DateTime ExpiresAt
+    DateTime ExpiresAt,
+    PhoenixApiResponse reponsePheonix
 );
 }

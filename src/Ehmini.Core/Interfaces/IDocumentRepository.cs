@@ -9,4 +9,5 @@ public interface IDocumentRepository : IRepository<Document>
 {
     Task<IEnumerable<Document>> GetByUserIdAsync(Guid userId);
     Task<Document?> GetWithDetailsAsync(Guid id);
+    Task<Document?> GetWithReferenceAsync(string reference);
 }

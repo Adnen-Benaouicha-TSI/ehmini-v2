@@ -9,6 +9,8 @@ using Ehmini.Application.Interfaces.QuoteProvider;
 using Ehmini.Core.Entities;
 using Ehmini.Core.Interfaces;
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
+using Serilog;
 using System.Security.Claims;
 
 namespace Ehmini.Application.Services;
@@ -18,18 +20,20 @@ public class DocumentOrchestrationService : IDocumentOrchestrationService
     private readonly IQuoteProviderFactory _providerFactory;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IHttpContextAccessor _httpContextAccessor;
-
+    private readonly IDocumentRepository _documentRepository;
     public DocumentOrchestrationService(
         IQuoteProviderFactory providerFactory,
         IUnitOfWork unitOfWork,
-        IHttpContextAccessor httpContextAccessor)
+        IHttpContextAccessor httpContextAccessor,
+        IDocumentRepository documentRepository)
     {
         _providerFactory = providerFactory;
         _unitOfWork = unitOfWork;
         _httpContextAccessor = httpContextAccessor;
+        _documentRepository = documentRepository;
     }
 
-    public async Task<DocumentResponseDto> ProcessAndSaveQuoteAsync(qModel quoteRequest, Guid userIdClaim, CancellationToken cancellationToken)
+    public async Task<PhoenixApiResponse> ProcessAndSaveQuoteAsync(qModel quoteRequest, Guid userIdClaim, CancellationToken cancellationToken)
     {
 
 
@@ -79,17 +83,133 @@ public class DocumentOrchestrationService : IDocumentOrchestrationService
         await _unitOfWork.Documents.AddAsync(documentEntity);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return new DocumentResponseDto(
-            Id: documentEntity.Id,
-            DocumentType: documentEntity.DocumentType,
-            TotalAmount: documentEntity.TotalAmount,
-            ProviderName: documentEntity.ProviderName,
-            Reference: documentEntity.ExternalReference,
-            CreatedAt: documentEntity.CreatedAt,
-            Details: detailResponses
-        );
+        return providerResponse.reponsePheonix;
     }
-    public async Task<DocumentResponseDto> UpdateAndSaveQuoteAsync(Guid documentId, qModel quoteRequest, CancellationToken cancellationToken)
+    //public async Task<DocumentResponseDto> UpdateAndSaveQuoteAsync(string reference, qModel quoteRequest, CancellationToken cancellationToken)
+    //{
+
+    //    try
+    //    {
+    //        // 1. Validation de l'utilisateur connecté
+    //        var userIdClaim = _httpContextAccessor.HttpContext?.User?.FindFirst("userId")?.Value;
+    //        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out Guid userId))
+    //        {
+    //            throw new UnauthorizedAccessException("Utilisateur non authentifié.");
+    //        }
+
+    //        // 2. Récupération du document avec ses détails
+    //        var existingDocument = await _documentRepository.GetWithReferenceAsync(reference);
+    //        if (existingDocument == null)
+    //        {
+    //            throw new KeyNotFoundException($"Le document avec l'ID {reference} n'existe pas.");
+    //        }
+
+    //        // 3. Vérification des droits d'accès
+    //        if (existingDocument.UserId != userId)
+    //        {
+    //            throw new UnauthorizedAccessException("Vous n'êtes pas autorisé à modifier ce document.");
+    //        }
+
+    //        // 4. Appel de mise à jour du prestataire (Phoenix)
+    //        var activeProvider = _providerFactory.GetActiveProvider();
+    //        ProviderQuoteResponseDto providerResponse = await activeProvider.UpdateQuoteAsync(quoteRequest, cancellationToken);
+
+    //        // 5. Mise à jour de l'en-tête du document local
+    //        existingDocument.ProviderName = activeProvider.Provider.ToString();
+    //        existingDocument.ExternalReference = providerResponse.Reference;
+    //        existingDocument.TotalAmount = providerResponse.TotalAmount;
+
+    //        if (existingDocument.Details == null)
+    //        {
+    //            existingDocument.Details = new List<DocumentDetail>();
+    //        }
+
+    //        // 6. Indexation des lignes actuelles par Description pour éviter de modifier l'Id
+    //        var existingDetailsMap = existingDocument.Details.ToDictionary(d => d.ItemDescription);
+    //        var updatedDetailIds = new List<Guid>();
+    //        var detailResponses = new List<DocumentDetailResponseDto>();
+
+    //        // 7. Traitement dynamique des lignes renvoyées par Phoenix
+    //        foreach (var line in providerResponse.Lines)
+    //        {
+    //            DocumentDetail detailEntity;
+
+    //            if (existingDetailsMap.TryGetValue(line.Description, out var existingDetail))
+    //            {
+    //                // ✅ MODIFICATION : La ligne existe déjà, on met à jour ses valeurs sans changer son Id
+    //                detailEntity = existingDetail;
+    //                detailEntity.Quantity = line.Quantite;
+    //                detailEntity.UnitPrice = line.UnitPrice;
+    //                detailEntity.LineTotal = line.UnitPrice * line.Quantite;
+
+    //                updatedDetailIds.Add(detailEntity.Id);
+    //            }
+    //            else
+    //            {
+    //                // ➕ AJOUT : Nouvelle ligne de garantie ajoutée dans Phoenix
+    //                var detailId = Guid.NewGuid();
+    //                detailEntity = new DocumentDetail
+    //                {
+    //                    Id = detailId,
+    //                    DocumentId = existingDocument.Id,
+    //                    ItemDescription = line.Description,
+    //                    Quantity = line.Quantite,
+    //                    UnitPrice = line.UnitPrice,
+    //                    LineTotal = line.UnitPrice * line.Quantite
+    //                };
+
+    //                existingDocument.Details.Add(detailEntity);
+    //                updatedDetailIds.Add(detailId);
+    //            }
+
+    //            // Construction du DTO de réponse pour la ligne
+    //            detailResponses.Add(new DocumentDetailResponseDto(
+    //                Id: detailEntity.Id,
+    //                ItemDescription: detailEntity.ItemDescription,
+    //                Quantity: detailEntity.Quantity,
+    //                UnitPrice: detailEntity.UnitPrice,
+    //                LineTotal: detailEntity.LineTotal
+    //            ));
+    //        }
+
+    //        // 8. 🗑️ SUPPRESSION : Retirer les garanties qui ne sont plus présentes dans le retour de Phoenix
+    //        var detailsToRemove = existingDocument.Details
+    //            .Where(d => !updatedDetailIds.Contains(d.Id))
+    //            .ToList();
+
+    //        foreach (var oldDetail in detailsToRemove)
+    //        {
+    //            existingDocument.Details.Remove(oldDetail);
+    //        }
+
+    //        // 9. Sauvegarde finale des modifications (Updates, Inserts et Deletes d'un coup)
+    //        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+    //        // 10. Retour du DTO synchronisé
+    //        return new DocumentResponseDto(
+    //            Id: existingDocument.Id,
+    //            DocumentType: existingDocument.DocumentType,
+    //            TotalAmount: existingDocument.TotalAmount,
+    //            ProviderName: existingDocument.ProviderName,
+    //            Reference: existingDocument.ExternalReference,
+    //            CreatedAt: existingDocument.CreatedAt,
+    //            Details: detailResponses
+    //        );
+    //    }
+    //    catch (DbUpdateConcurrencyException ex)
+    //    {
+    //        foreach (var entry in ex.Entries)
+    //        {
+    //            var entity = entry.Entity;
+    //            Log.Error(
+    //                "Conflit de concurrence : Type={Type}, État={State}, Entité={@Entity}",
+    //                entity.GetType().Name, entry.State, entity);
+    //        }
+
+    //        return null;
+    //    }
+    //}
+    public async Task<PhoenixApiResponse> UpdateAndSaveQuoteAsync(string reference, qModel quoteRequest, CancellationToken cancellationToken)
     {
         // 1. Validation de l'utilisateur connecté
         var userIdClaim = _httpContextAccessor.HttpContext?.User?.FindFirst("userId")?.Value;
@@ -99,10 +219,10 @@ public class DocumentOrchestrationService : IDocumentOrchestrationService
         }
 
         // 2. Récupération du document avec ses détails
-        var existingDocument = await _unitOfWork.Documents.GetByIdAsync(documentId);
+        var existingDocument = await _documentRepository.GetWithReferenceAsync(reference);
         if (existingDocument == null)
         {
-            throw new KeyNotFoundException($"Le document avec l'ID {documentId} n'existe pas.");
+            throw new KeyNotFoundException($"Le document avec l'ID {reference} n'existe pas.");
         }
 
         // 3. Vérification des droits d'accès
@@ -120,84 +240,39 @@ public class DocumentOrchestrationService : IDocumentOrchestrationService
         existingDocument.ExternalReference = providerResponse.Reference;
         existingDocument.TotalAmount = providerResponse.TotalAmount;
 
-        if (existingDocument.Details == null)
-        {
-            existingDocument.Details = new List<DocumentDetail>();
-        }
+        // 6. Mise à jour de l'unique ligne de détail — un document = une seule ligne
+        var providerLine = providerResponse.Lines.Single();
+        var existingDetail = existingDocument.Details.Single();
 
-        // 6. Indexation des lignes actuelles par Description pour éviter de modifier l'Id
-        var existingDetailsMap = existingDocument.Details.ToDictionary(d => d.ItemDescription);
-        var updatedDetailIds = new List<Guid>();
-        var detailResponses = new List<DocumentDetailResponseDto>();
+        existingDetail.ItemDescription = providerLine.Description;
+        existingDetail.Quantity = providerLine.Quantite;
+        existingDetail.UnitPrice = providerLine.UnitPrice;
+        existingDetail.LineTotal = providerLine.UnitPrice * providerLine.Quantite;
 
-        // 7. Traitement dynamique des lignes renvoyées par Phoenix
-        foreach (var line in providerResponse.Lines)
-        {
-            DocumentDetail detailEntity;
-
-            if (existingDetailsMap.TryGetValue(line.Description, out var existingDetail))
-            {
-                // ✅ MODIFICATION : La ligne existe déjà, on met à jour ses valeurs sans changer son Id
-                detailEntity = existingDetail;
-                detailEntity.Quantity = line.Quantite;
-                detailEntity.UnitPrice = line.UnitPrice;
-                detailEntity.LineTotal = line.UnitPrice * line.Quantite;
-
-                updatedDetailIds.Add(detailEntity.Id);
-            }
-            else
-            {
-                // ➕ AJOUT : Nouvelle ligne de garantie ajoutée dans Phoenix
-                var detailId = Guid.NewGuid();
-                detailEntity = new DocumentDetail
-                {
-                    Id = detailId,
-                    DocumentId = existingDocument.Id,
-                    ItemDescription = line.Description,
-                    Quantity = line.Quantite,
-                    UnitPrice = line.UnitPrice,
-                    LineTotal = line.UnitPrice * line.Quantite
-                };
-
-                existingDocument.Details.Add(detailEntity);
-                updatedDetailIds.Add(detailId);
-            }
-
-            // Construction du DTO de réponse pour la ligne
-            detailResponses.Add(new DocumentDetailResponseDto(
-                Id: detailEntity.Id,
-                ItemDescription: detailEntity.ItemDescription,
-                Quantity: detailEntity.Quantity,
-                UnitPrice: detailEntity.UnitPrice,
-                LineTotal: detailEntity.LineTotal
-            ));
-        }
-
-        // 8. 🗑️ SUPPRESSION : Retirer les garanties qui ne sont plus présentes dans le retour de Phoenix
-        var detailsToRemove = existingDocument.Details
-            .Where(d => !updatedDetailIds.Contains(d.Id))
-            .ToList();
-
-        foreach (var oldDetail in detailsToRemove)
-        {
-            existingDocument.Details.Remove(oldDetail);
-        }
-
-        // 9. Sauvegarde finale des modifications (Updates, Inserts et Deletes d'un coup)
+        // 7. Sauvegarde finale (un seul UPDATE sur le document, un seul UPDATE sur le détail)
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        // 10. Retour du DTO synchronisé
-        return new DocumentResponseDto(
-            Id: existingDocument.Id,
-            DocumentType: existingDocument.DocumentType,
-            TotalAmount: existingDocument.TotalAmount,
-            ProviderName: existingDocument.ProviderName,
-            Reference: existingDocument.ExternalReference,
-            CreatedAt: existingDocument.CreatedAt,
-            Details: detailResponses
-        );
+        // 8. Retour du DTO synchronisé
+        //return new DocumentResponseDto(
+        //    Id: existingDocument.Id,
+        //    DocumentType: existingDocument.DocumentType,
+        //    TotalAmount: existingDocument.TotalAmount,
+        //    ProviderName: existingDocument.ProviderName,
+        //    Reference: existingDocument.ExternalReference,
+        //    CreatedAt: existingDocument.CreatedAt,
+        //    Details: new List<DocumentDetailResponseDto>
+        //    {
+        //    new DocumentDetailResponseDto(
+        //        Id: existingDetail.Id,
+        //        ItemDescription: existingDetail.ItemDescription,
+        //        Quantity: existingDetail.Quantity,
+        //        UnitPrice: existingDetail.UnitPrice,
+        //        LineTotal: existingDetail.LineTotal
+        //    )
+        //    }
+        //);
+        return providerResponse.reponsePheonix;
     }
-
     public async Task<bool> DeleteDocumentAsync(Guid documentId, CancellationToken cancellationToken)
     {
         var userIdClaim = _httpContextAccessor.HttpContext?.User?.FindFirst("userId")?.Value;

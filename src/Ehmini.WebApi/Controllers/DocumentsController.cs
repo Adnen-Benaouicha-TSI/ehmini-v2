@@ -72,12 +72,12 @@ public class DocumentsController : ControllerBase
         }
     }
 
-    [HttpPut("{id:guid}/quotes")]
-    public async Task<IActionResult> UpdateQuoteDocument(Guid id, [FromBody] qModel request, CancellationToken cancellationToken)
+    [HttpPut("UpdateQuotes")]
+    public async Task<IActionResult> UpdateQuoteDocument([FromBody] qModel request, CancellationToken cancellationToken)
     {
         try
         {
-            var result = await _orchestrationService.UpdateAndSaveQuoteAsync(id, request, cancellationToken);
+            var result = await _orchestrationService.UpdateAndSaveQuoteAsync(request.reference, request, cancellationToken);
             return Ok(result);
         }
         catch (KeyNotFoundException ex)

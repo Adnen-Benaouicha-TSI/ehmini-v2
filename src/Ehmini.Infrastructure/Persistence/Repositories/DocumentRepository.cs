@@ -29,4 +29,10 @@ public class DocumentRepository : Repository<Document>, IDocumentRepository
             .Include(d => d.Details)
             .FirstOrDefaultAsync(d => d.Id == id);
     }
+    public async Task<Document?> GetWithReferenceAsync(string reference)
+    {
+        return await _dbSet
+            .Include(d => d.Details)
+            .FirstOrDefaultAsync(d => d.ExternalReference == reference);
+    }
 }

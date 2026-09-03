@@ -11,8 +11,8 @@ namespace Ehmini.Application.Interfaces
 {
     public interface IDocumentOrchestrationService
     {
-        Task<DocumentResponseDto> ProcessAndSaveQuoteAsync(qModel quoteRequest, Guid userIdClaim, CancellationToken cancellationToken);
-        Task<DocumentResponseDto> UpdateAndSaveQuoteAsync(Guid documentId, qModel quoteRequest, CancellationToken cancellationToken);
+        Task<PhoenixApiResponse> ProcessAndSaveQuoteAsync(qModel quoteRequest, Guid userIdClaim, CancellationToken cancellationToken);
+        Task<PhoenixApiResponse> UpdateAndSaveQuoteAsync(string reference, qModel quoteRequest, CancellationToken cancellationToken);
         Task<bool> DeleteDocumentAsync(Guid documentId, CancellationToken cancellationToken);
         Task<List<ProviderQuotationDto>> GetQuotationsAsync(int language,CancellationToken cancellationToken);
         Task<List<qModel>> GetContractsAsync(int language, CancellationToken cancellationToken);

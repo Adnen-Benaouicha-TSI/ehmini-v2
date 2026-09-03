@@ -178,16 +178,17 @@ public class PhoenixQuoteProvider : IQuoteProvider, IPhoenixTokenService
             new QuoteLineDto(
                 Description: "Devis",
                 Quantite: 1,
-                UnitPrice: apiResult.qModel.ttc,
-                LineTotal: apiResult.qModel.ttc
+                UnitPrice: apiResult.qModel.ttc ?? 0,
+                LineTotal: apiResult.qModel.ttc ?? 0
             )
         };
 
             return new ProviderQuoteResponseDto(
                 Reference: apiResult.qModel.reference,
-                TotalAmount: apiResult.qModel.ttc,
+                TotalAmount: apiResult.qModel.ttc ?? 0,
                 Lines: lines,
-                ExpiresAt: DateTime.UtcNow.AddDays(30)
+                ExpiresAt: DateTime.UtcNow.AddDays(30),
+                reponsePheonix: apiResult
             );
         }
         catch (UnauthorizedAccessException)
@@ -321,17 +322,19 @@ public class PhoenixQuoteProvider : IQuoteProvider, IPhoenixTokenService
 
     public async Task<ProviderQuoteResponseDto> UpdateQuoteAsync(qModel phoenixPayload, CancellationToken cancellationToken)
     {
-        var currentToken = _httpContextAccessor.HttpContext?.Request.Headers["Authorization"].ToString();
+        var currentPrincipal = _httpContextAccessor.HttpContext?.User;
+        var cin = currentPrincipal?.FindFirst("cin")?.Value;
 
-        if (!string.IsNullOrEmpty(currentToken))
+        if (string.IsNullOrEmpty(cin))
         {
-            string pureToken = currentToken.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
-                ? currentToken.Substring(7).Trim()
-                : currentToken.Trim();
-
-            _httpClient.DefaultRequestHeaders.Authorization =
-                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", pureToken);
+            throw new UnauthorizedAccessException("cin introuvable dans le token utilisateur Ehmini.");
         }
+
+        // 2. Échanger contre un token Phoenix (via client_credentials + cin)
+        string phoenixToken = (await GetPhoenixTokenAsync(cin, cancellationToken)).access_token;
+
+        _httpClient.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", phoenixToken);
 
         if (phoenixPayload.c != null)
         {
@@ -356,18 +359,19 @@ public class PhoenixQuoteProvider : IQuoteProvider, IPhoenixTokenService
         var lines = new List<QuoteLineDto>
     {
         new QuoteLineDto(
-            Description: "Devis Phoenix",
+            Description: "Devis",
             Quantite: 1,
-            UnitPrice: apiResult.qModel.ttc,
-            LineTotal: apiResult.qModel.ttc
+            UnitPrice: apiResult.qModel.ttc ?? 0,
+            LineTotal: apiResult.qModel.ttc ?? 0
         )
     };
 
         return new ProviderQuoteResponseDto(
             Reference: apiResult.qModel.reference,
-            TotalAmount: apiResult.qModel.ttc,
+            TotalAmount: apiResult.qModel.ttc ?? 0,
             Lines: lines,
-            ExpiresAt: DateTime.UtcNow.AddDays(30)
+            ExpiresAt: DateTime.UtcNow.AddDays(30),
+            reponsePheonix: apiResult
         );
     }
 
