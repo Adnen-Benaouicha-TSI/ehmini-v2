@@ -19,6 +19,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, IdentityR
     public DbSet<Address> Addresses { get; set; } = null!;
     public DbSet<Profession> Professions { get; set; } = null!;
     public DbSet<Prestataire> Prestataires { get; set; } = null!;
+    public DbSet<AppVersion> AppVersions { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -142,5 +143,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, IdentityR
                  .HasForeignKey(u => u.CountryId)
                  .OnDelete(DeleteBehavior.SetNull);
         });
+
+        modelBuilder.ApplyConfiguration(new Ehmini.Infrastructure.Persistence.Configurations.AppVersionConfiguration());
     }
 }

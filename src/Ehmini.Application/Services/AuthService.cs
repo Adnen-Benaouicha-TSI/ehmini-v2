@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 using System.Data.Common;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 
 namespace Ehmini.Application.Services;
@@ -43,8 +44,7 @@ public class AuthService : IAuthService
 
         // 1. Extraire le Principal (les claims) depuis le token expiré
         var principal = _tokenService.GetPrincipalFromExpiredToken(dto.AccessToken);
-        var userEmail = principal.FindFirst(ClaimTypes.Email)?.Value;
-
+        var userEmail = principal.FindFirst(JwtRegisteredClaimNames.Email)?.Value;
         if (string.IsNullOrEmpty(userEmail))
         {
             throw new UnauthorizedAccessException("Token d'accès invalide.");
